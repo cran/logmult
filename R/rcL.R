@@ -4,7 +4,7 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
                 symmetric=FALSE, diagonal=c("none", "heterogeneous", "homogeneous"),
                 weighting=c("marginal", "uniform", "none"), se=c("none", "jackknife", "bootstrap"),
                 nreplicates=100, ncpus=getOption("boot.ncpus"),
-                family=poisson, weights=NULL, start=NA, etastart=NULL, tolerance=1e-8, iterMax=5000,
+                family=poisson, weights=NULL, start=NULL, etastart=NULL, tolerance=1e-8, iterMax=5000,
                 trace=FALSE, verbose=TRUE, ...) {
   layer.effect <- match.arg(layer.effect)
   diagonal <- match.arg(diagonal)
@@ -33,11 +33,9 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
   if(length(dim(tab)) > 3)
       tab <- margin.table(tab, 1:3)
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2", "Var3")
+  tab <- prepareTable(tab, FALSE)
+  vars <- names(dimnames(tab))
+
 
   if(diagonal == "heterogeneous")
       diagstr <- sprintf("+ %s:Diag(%s, %s) ", vars[3], vars[1], vars[2])
@@ -48,6 +46,7 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
 
   f1 <- sprintf("Freq ~ %s + %s + %s + %s:%s + %s:%s",
                 vars[1], vars[2], vars[3], vars[1], vars[3], vars[2], vars[3])
+
   eliminate <- eval(parse(text=sprintf("quote(%s:%s)", vars[1], vars[3])))
 
   base <- NULL
@@ -59,10 +58,19 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
       cat("Running base model to find starting values...\n")
 
       args <- list(formula=as.formula(paste(f1, diagstr)), data=tab,
-                   family=family, eliminate=eliminate,
+                   family=family, weights=weights, eliminate=eliminate,
                    tolerance=1e-6, iterMax=iterMax)
 
       base <- do.call("gnm", c(args, list(...)))
+
+      res <- if(symmetric) residEVDL(base, nd, layer.effect)
+             else residSVDL(base, nd, layer.effect)
+
+      # Using NA for all linear parameters usually gives better results than linear parameter values
+      if(layer.effect == "homogeneous.scores")
+          start <- c(rep(NA, length(parameters(base))), rbind(matrix(NA, dim(tab)[3], ncol(res)), res))
+      else
+          start <- c(rep(NA, length(parameters(base))), res)
   }
 
   if(symmetric) {
@@ -72,9 +80,6 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
           for(i in 1:nd)
               f2 <- paste(f2, sprintf("+ Mult(%s, MultHomog(%s, %s), inst = %i)",
                                       vars[3], vars[1], vars[2], i))
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd * (dim(tab)[3] + nrow(tab) + ncol(tab))))
       }
       else if(layer.effect == "heterogeneous") {
           stop("Symmetric association with heterogeneous layer effect is currently not supported")
@@ -84,62 +89,23 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
           for(i in 1:nd)
               f2 <- paste(f2, sprintf("+ MultHomog(%s:%s, %s:%s, inst = %i)", 
                                       vars[3], vars[1], vars[3], vars[2], i))
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd * nrow(tab)))
       }
       else {
           f2 <- sprintf("+ instances(MultHomog(%s, %s), %i)", vars[1], vars[2], nd)
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd * nrow(tab)))
       }
   }
   else {
       if(layer.effect == "homogeneous.scores") {
           f2 <- sprintf("+ instances(Mult(%s, %s, %s), %i)",
                         vars[3], vars[1], vars[2], nd)
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd * (nrow(tab) + ncol(tab) + dim(tab)[3])))
       }
       else if(layer.effect == "heterogeneous") {
           f2 <- sprintf("+ instances(Mult(%s:%s, %s:%s), %i)",
                         vars[3], vars[1], vars[3], vars[2], nd)
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd * dim(tab)[3] * (nrow(tab) + ncol(tab))))
       }
       else {
           f2 <- sprintf("+ instances(Mult(%s, %s), %i)",
                         vars[1], vars[2], nd)
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd * (nrow(tab) + ncol(tab))))
-      }
-  }
-
-  # Heterogeneous diagonal parameters can make the convergence really slow unless
-  # correct starting values are used
-  if(!is.null(base)) {
-      cat("Running second base model to find starting values...\n")
-
-      args <- list(formula=as.formula(paste(f1, diagstr, f2)),
-                   data=tab, family=family,
-                   eliminate=eliminate, constrain=seq(1, length(parameters(base))), constrainTo=parameters(base),
-                   tolerance=1e-3, iterMax=iterMax, verbose=verbose, trace=trace)
-
-      base2 <- do.call("gnm", c(args, list(...)))
-
-      # If model fails (can always happen), do not fail completely but start with random values
-      if(is.null(base2)) {
-          start <- NULL
-      }
-      else {
-          start <- parameters(base2)
-
-          if(is.null(etastart))
-              etastart <- as.numeric(predict(base2))
       }
   }
 
@@ -150,7 +116,7 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
       cat("Running real model...\n")
 
   args <- list(formula=as.formula(paste(f1, diagstr, f2)), data=tab,
-               family=family, start=start, etastart=etastart,
+               family=family, weights=weights, start=start, etastart=etastart,
                eliminate=eliminate,
                tolerance=tolerance, iterMax=iterMax, verbose=verbose, trace=trace)
 
@@ -187,11 +153,8 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
 
   if(se %in% c("jackknife", "bootstrap")) {
       jb <- jackboot(se, ncpus, nreplicates, tab, model, assoc1, NULL,
-                     weighting, family, weights,
-                     if(!is.null(base) && !is.null(base2)) base2
-                     else if(!is.null(base)) base
-                     else NULL,
-                     verbose, trace, ...)
+                     weighting, NULL, NULL, family, weights,
+                     verbose, trace, start, etastart, ...)
       model$assoc$covmat <- jb$covmat
       model$assoc$adj.covmats <- jb$adj.covmats
       model$assoc$boot.results <- jb$boot.results
@@ -214,10 +177,8 @@ assoc.rcL <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
   if(!inherits(model, "gnm"))
       stop("model must be a gnm object")
 
-  # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-  tab <- as.table(model$data[!is.na(rownames(model$data)),
-                             !is.na(colnames(model$data)),
-                             !is.na(dimnames(model$data)[3])])
+  tab <- prepareTable(model$data, FALSE)
+  vars <- names(dimnames(tab))
 
   nr <- nrow(tab)
   nc <- ncol(tab)
@@ -238,11 +199,6 @@ assoc.rcL <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
       cp <- rep(1, nc)
   }
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2", "Var3")
 
   # Find out the number of dimensions
   nd <- 0
@@ -372,8 +328,8 @@ assoc.rcL <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
       col <- sweep(col[,,1, drop=FALSE], 2, phi.col, "/")
       layer <- sweep(layer, 2, phi.row * phi.col, "*")
 
-      # Order dimensions according to phi on first layer category
-      ord <- order(abs(layer[1,]), decreasing=TRUE)
+      # Conventionally order dimensions according to phi on first layer category
+      ord <- order(abs(colSums(sweep(layer, 1, apply(tab, 3, sum, na.rm=TRUE), "*"))), decreasing=TRUE)
       layer <- layer[,ord, drop=FALSE]
       row <- row[,ord,, drop=FALSE]
       col <- col[,ord,, drop=FALSE]
@@ -393,10 +349,10 @@ assoc.rcL <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
       }
   }
 
-  # By convention, keep layer coefficients positive for the first layer category
+  # By convention, keep the weighted average of layer coefficients positive
   if(homogeneous) {
       for(i in 1:nd) {
-          if(layer[1,i] < 0) {
+          if(sum(layer[,i] * apply(tab, 3, sum, na.rm=TRUE)) < 0) {
               layer[,i] <- -layer[,i]
               row[,i,] <- -row[,i,]
           }
@@ -438,8 +394,11 @@ assoc.rcL <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
           rownames(dg) <- "All levels"
   }
 
+  row.weights <- apply(tab, c(1, 3), sum, na.rm=TRUE)
+  col.weights <- apply(tab, c(2, 3), sum, na.rm=TRUE)
+
   obj <- list(phi = layer, row = row, col = col, diagonal = dg,
-              weighting = weighting, row.weights = rp, col.weights = cp)
+              weighting = weighting, row.weights = row.weights, col.weights = col.weights)
 
   class(obj) <- c("assoc.rcL", "assoc")
   obj
@@ -449,10 +408,8 @@ assoc.rcL.symm <- function(model, weighting=c("marginal", "uniform", "none"), ..
   if(!inherits(model, "gnm"))
       stop("model must be a gnm object")
 
-  # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-  tab <- as.table(model$data[!is.na(rownames(model$data)),
-                             !is.na(colnames(model$data)),
-                             !is.na(dimnames(model$data)[3])])
+  tab <- prepareTable(model$data, FALSE)
+  vars <- names(dimnames(tab))
 
   nr <- nrow(tab)
   nc <- ncol(tab)
@@ -467,11 +424,6 @@ assoc.rcL.symm <- function(model, weighting=c("marginal", "uniform", "none"), ..
   else
       p <- rep(1, nr)
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2", "Var3")
 
   # Find out the number of dimensions
   nd <- 0
@@ -568,8 +520,8 @@ assoc.rcL.symm <- function(model, weighting=c("marginal", "uniform", "none"), ..
       sc <- sweep(sc[,,1, drop=FALSE], 2, phi, "/")
       layer <- sweep(layer, 2, phi, "*")
 
-      # Order dimensions according to phi on first layer category
-      ord <- order(layer[1,], decreasing=TRUE)
+      # Conventionally order dimensions according to weighted average of phi
+      ord <- order(abs(colSums(sweep(layer, 1, apply(tab, 3, sum, na.rm=TRUE), "*"))), decreasing=TRUE)
       layer <- layer[,ord, drop=FALSE]
       sc <- sc[,ord,, drop=FALSE]
   }
@@ -619,8 +571,11 @@ assoc.rcL.symm <- function(model, weighting=c("marginal", "uniform", "none"), ..
           rownames(dg) <- "All levels"
   }
 
+  row.weights <- apply(tab, c(1, 3), sum, na.rm=TRUE)
+  col.weights <- apply(tab, c(2, 3), sum, na.rm=TRUE)
+
   obj <- list(phi = layer, row = sc, col = sc, diagonal = dg,
-              weighting = weighting, row.weights = p, col.weights = p)
+              weighting = weighting, row.weights = row.weights, col.weights = col.weights)
 
   class(obj) <- c("assoc.rcL", "assoc.symm", "assoc")
   obj

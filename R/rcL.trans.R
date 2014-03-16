@@ -37,7 +37,7 @@ class(RCTransSymm) <- "nonlin"
 rcL.trans <- function(tab, nd=1, symmetric=FALSE, diagonal=c("none", "heterogeneous", "homogeneous"),
                       weighting=c("marginal", "uniform", "none"), se=c("none", "jackknife", "bootstrap"),
                       nreplicates=100, ncpus=getOption("boot.ncpus"),
-                      family=poisson, weights=NULL, start=NA, etastart=NULL, tolerance=1e-8, iterMax=5000,
+                      family=poisson, weights=NULL, start=NULL, etastart=NULL, tolerance=1e-8, iterMax=5000,
                       trace=FALSE, verbose=TRUE, ...) {
   diagonal <- match.arg(diagonal)
   weighting <- match.arg(weighting)
@@ -65,11 +65,9 @@ rcL.trans <- function(tab, nd=1, symmetric=FALSE, diagonal=c("none", "heterogene
   if(length(dim(tab)) > 3)
       tab <- margin.table(tab, 1:3)
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2", "Var3")
+  tab <- prepareTable(tab, FALSE)
+  vars <- names(dimnames(tab))
+
 
   if(diagonal == "homogeneous")
       diagstr <- sprintf("+ Diag(%s, %s) ", vars[1], vars[2])
@@ -89,7 +87,7 @@ rcL.trans <- function(tab, nd=1, symmetric=FALSE, diagonal=c("none", "heterogene
 
       if(symmetric) {
           args <- list(formula=as.formula(sprintf("%s + instances(MultHomog(%s, %s), %i)", f1, vars[1], vars[2], nd)),
-                       data=tab, family=family, eliminate=eliminate,
+                       data=tab, family=family, weights=weights, eliminate=eliminate,
                        tolerance=1e-6, iterMax=iterMax)
 
           base <- do.call("gnm", c(args, list(...)))
@@ -101,7 +99,7 @@ rcL.trans <- function(tab, nd=1, symmetric=FALSE, diagonal=c("none", "heterogene
       }
       else {
           args <- list(formula=as.formula(sprintf("%s + instances(Mult(%s, %s), %i)", f1, vars[1], vars[2], nd)),
-                       data=tab, family=family, eliminate=eliminate,
+                       data=tab, family=family, weights=weights, eliminate=eliminate,
                        tolerance=1e-6, iterMax=iterMax, verbose=verbose, trace=trace)
 
           base <- do.call("gnm", c(args, list(...)))
@@ -122,7 +120,7 @@ rcL.trans <- function(tab, nd=1, symmetric=FALSE, diagonal=c("none", "heterogene
                vars[1], vars[2], vars[3], vars[1], vars[3], vars[2], vars[3], diagstr,
                if(symmetric) "RCTransSymm" else "RCTrans", vars[1], vars[2], vars[3], nd)
 
-  args <- list(formula=as.formula(f), data=tab,  family=family,
+  args <- list(formula=as.formula(f), data=tab, family=family, weights=weights,
                # Both constraints are really needed: the computed scores are wrong without them
                # (rows are ordered along an oblique axis, and columns get weird values)
                constrain=sprintf("RCTrans.*\\).\\Q%s\\E(\\Q%s\\E|\\Q%s\\E)$",
@@ -148,7 +146,8 @@ rcL.trans <- function(tab, nd=1, symmetric=FALSE, diagonal=c("none", "heterogene
 
  if(se %in% c("jackknife", "bootstrap")) {
       jb <- jackboot(se, ncpus, nreplicates, tab, model, assoc, NULL,
-                     weighting, family, weights, base, verbose, trace, ...)
+                     weighting, NULL, NULL, family, weights,
+                     verbose, trace, start, etastart, ...)
       model$assoc$covmat <- jb$covmat
       model$assoc$adj.covmats <- jb$adj.covmats
       model$assoc$boot.results <- jb$boot.results
@@ -174,10 +173,8 @@ assoc.rcL.trans <- function(model, weighting=c("marginal", "uniform", "none"), .
   if(!inherits(model, "gnm"))
       stop("model must be a gnm object")
 
-  # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-  tab <- as.table(model$data[!is.na(rownames(model$data)),
-                             !is.na(colnames(model$data)),
-                             !is.na(dimnames(model$data)[3])])
+  tab <- prepareTable(model$data, FALSE)
+  vars <- names(dimnames(tab))
 
   nr <- nrow(tab)
   nc <- ncol(tab)
@@ -197,11 +194,6 @@ assoc.rcL.trans <- function(model, weighting=c("marginal", "uniform", "none"), .
       rp <- rep(1, nr)
       cp <- rep(1, nc)
   }
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2", "Var3")
 
 
   # Find out the number of dimensions
@@ -349,8 +341,11 @@ assoc.rcL.trans <- function(model, weighting=c("marginal", "uniform", "none"), .
       rownames(dg) <- dimnames(tab)[[3]]
   }
 
+  row.weights <- apply(tab, c(1, 3), sum, na.rm=TRUE)
+  col.weights <- apply(tab, c(2, 3), sum, na.rm=TRUE)
+
   obj <- list(phi = layer, row = row, col = col, diagonal = dg,
-              weighting = weighting, row.weights = rp, col.weights = cp)
+              weighting = weighting, row.weights = row.weights, col.weights = col.weights)
 
   class(obj) <- c("assoc.rcL.trans", "assoc.rcL", "assoc")
   obj
@@ -361,10 +356,8 @@ assoc.rcL.trans.symm <- function(model, weighting=c("marginal", "uniform", "none
   if(!inherits(model, "gnm"))
       stop("model must be a gnm object")
 
-  # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-  tab <- as.table(model$data[!is.na(rownames(model$data)),
-                             !is.na(colnames(model$data)),
-                             !is.na(dimnames(model$data)[3])])
+  tab <- prepareTable(model$data, FALSE)
+  vars <- names(dimnames(tab))
 
   nr <- nrow(tab)
   nc <- ncol(tab)
@@ -380,12 +373,6 @@ assoc.rcL.trans.symm <- function(model, weighting=c("marginal", "uniform", "none
       rp <- rep(1/nr, nr)
   else
       rp <- rep(1, nr)
-
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2", "Var3")
 
 
   # Find out the number of dimensions
@@ -506,8 +493,11 @@ assoc.rcL.trans.symm <- function(model, weighting=c("marginal", "uniform", "none
       rownames(dg) <- dimnames(tab)[[3]]
   }
 
+  row.weights <- apply(tab, c(1, 3), sum, na.rm=TRUE)
+  col.weights <- apply(tab, c(2, 3), sum, na.rm=TRUE)
+
   obj <- list(phi = layer, row = sc, col = sc, diagonal = dg,
-              weighting = weighting, row.weights = p, col.weights = p)
+              weighting = weighting, row.weights = row.weights, col.weights = col.weights)
 
   class(obj) <- c("assoc.rcL.trans", "assoc.rcL", "assoc.symm", "assoc")
   obj

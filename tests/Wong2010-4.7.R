@@ -1,12 +1,12 @@
 ## Wong (2010), Table 4.7 (p. 103), model 9
 
 timings <- as.numeric(Sys.getenv("_R_CHECK_TIMINGS_"))
-if(is.na(timings) || timings > 60) {
+if(!is.na(timings) && timings > 60) {
 
 library(logmult)
 data(gss7590)
 
-model <- rcL(gss7590, nd=2, weighting="none", se="jackknife")
+model <- rcL(gss7590, nd=2, weighting="none", se="jackknife", start=NA)
 
 model
 summary(model) # Jackknife standard errors are slightly different
@@ -24,9 +24,9 @@ stopifnot(all.equal(round(c(model$assoc$col[,,1]), d=3),
 
 # Check scores of heterogeneous model (scores not given by Wong)
 model.heterog <- rcL(gss7590, nd=2, layer.effect="heterogeneous",
-                     weighting="none")
+                     weighting="none", start=NA)
 sep.models <- lapply(1:4, function(i) rc(gss7590[,,i], nd=2,
-                                         weighting="none"))
+                                         weighting="none", start=NA))
 
 # Level 2 does not converge properly because there are too few farmers:
 # values are always slightly different and cannot be checked

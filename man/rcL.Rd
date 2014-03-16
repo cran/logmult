@@ -18,7 +18,7 @@ rcL(tab, nd = 1,
     se = c("none", "jackknife", "bootstrap"),
     nreplicates = 100, ncpus = getOption("boot.ncpus"),
     family = poisson, weights = NULL,
-    start = NA, etastart = NULL, tolerance = 1e-8,
+    start = NULL, etastart = NULL, tolerance = 1e-8,
     iterMax = 5000, trace = FALSE, verbose = TRUE, ...)
 }
 \arguments{
@@ -38,15 +38,14 @@ rcL(tab, nd = 1,
   \item{nreplicates}{ the number of bootstrap replicates, if enabled.}
   \item{ncpus}{ the number of processes to use for jackknife or bootstrap parallel computing. Defaults to
     the number of cores (see \code{\link[parallel]{detectCores}}), with a maximum of 5, but falls back to 1
-    (no parallelization) if packages \code{parallel} or \code{snow} are not available.}
+    (no parallelization) if package \code{parallel} is not available.}
   \item{family}{ a specification of the error distribution and link function
      to be used in the model. This can be a character string naming
      a family function; a family function, or the result of a call
      to a family function. See \code{\link{family}} details of family functions.}
   \item{weights}{ an optional vector of weights to be used in the fitting process.}
-  \item{start}{either \code{NA} (the default) to use reasonable starting values, \code{NULL} to use
-     random starting values, or a vector of starting values for the parameters in the model;
-     if a starting value is \code{NA}, the default starting value will be used.}
+  \item{start}{either \code{NA} to use optimal starting values, \code{NULL} to use
+     random starting values, or a vector of starting values for the parameters in the model.}
   \item{etastart}{ starting values for the linear predictor; set to \code{NULL} to use either default
      starting values (if \code{start = NA}), or random starting values (in all other cases).}
   \item{tolerance}{ a positive numeric value specifying the tolerance level for
@@ -70,18 +69,18 @@ rcL(tab, nd = 1,
   \code{tab}, and M the number of dimensions. If \code{layer.effect} is set to \sQuote{heterogeneous}, different scores
   will be computed for each level, which is equivalent to fitting separate RC(M) models on the k two-way tables.
   If it is set to \sQuote{homogeneous.scores}, then \eqn{\mu_{ikm} = \mu_{im}} and \eqn{\nu_{ikm} = \nu_{im}} for all
-  layers k: only the \eqn{\phi_{km}} are allowed to vary accross layers. If it is set to \sQuote{none}, then in addition
+  layers k: only the \eqn{\phi_{km}} are allowed to vary across layers. If it is set to \sQuote{none}, then in addition
   to the previous conditions all \eqn{\phi_{km}} are forced to be equal for all layers k, which amounts to a stability
-  of the association accross layers. See references for detailed information about the variants of the model, the degrees
+  of the association across layers. See references for detailed information about the variants of the model, the degrees
   of freedom and the identification constraints applied to the scores.
 
   Actual model fitting is performed using \code{\link{gnm}}, which implements the Newton-Raphson algorithm.
   This function simply ensures correct start values are used, in addition to allowing for identification
   of scores even with several dimensions, computation of their jackknife or bootstrap standard errors, and plotting.
-  The default starting values correspond to the parameters computed for the model with main parameters constrained to the
-  values they would have without RC association parameters (\dQuote{second base model}); association parameters start with
-  random values. In some complex cases, using \code{start = NULL} to get completely random starting values can be more
-  efficient, but it is also less stable.
+  The default starting values for association parameters are computed using a singular/eigen value decomposition
+  from the results of the model without association component (\dQuote{base model}). In some complex cases, using
+  \code{start = NULL} to start with random values can be more efficient, but it is also less stable and can converge
+  to non-optimal solutions.
 }
 \value{
   A \code{rcL} object, with all the components of a \code{\link{gnm}} object, plus an

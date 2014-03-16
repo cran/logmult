@@ -1,9 +1,9 @@
 ## RC(M) model
 
 rc <- function(tab, nd=1, symmetric=FALSE, diagonal=FALSE,
-               weighting=c("marginal", "uniform", "none"), se=c("none", "jackknife", "bootstrap"),
-               nreplicates=100, ncpus=getOption("boot.ncpus"),
-               family=poisson, weights=NULL, start=NA, etastart=NULL, tolerance=1e-8, iterMax=5000,
+               weighting=c("marginal", "uniform", "none"), rowsup=NULL, colsup=NULL,
+               se=c("none", "jackknife", "bootstrap"), nreplicates=100, ncpus=getOption("boot.ncpus"),
+               family=poisson, weights=NULL, start=NULL, etastart=NULL, tolerance=1e-8, iterMax=5000,
                trace=FALSE, verbose=TRUE, ...) {
   weighting <- match.arg(weighting)
   se <- match.arg(se)
@@ -30,11 +30,9 @@ rc <- function(tab, nd=1, symmetric=FALSE, diagonal=FALSE,
   if(length(dim(tab)) > 2)
       tab <- margin.table(tab, 1:2)
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2")
+  tab <- prepareTable(tab, TRUE, rowsup, colsup)
+  vars <- names(dimnames(tab))
+
 
   if(diagonal)
       diagstr <- sprintf("+ Diag(%s, %s) ", vars[1], vars[2])
@@ -44,41 +42,36 @@ rc <- function(tab, nd=1, symmetric=FALSE, diagonal=FALSE,
 
   nastart <- length(start) == 1 && is.na(start)
 
-  if(symmetric) {
+  if(nastart) {
+      cat("Running base model to find starting values...\n")
+
+      args <- list(formula=as.formula(sprintf("Freq ~ %s + %s %s", vars[1], vars[2], diagstr)),
+                   data=tab, family=family, weights=weights,
+                   tolerance=tolerance, iterMax=iterMax)
+
+      base <- do.call("gnm", c(args, list(...)))
+
+      res <- if(symmetric) residEVD(base, nd)
+             else residSVD(base, nd)
+
+      # Using NA for all linear parameters usually gives better results than linear parameter values
+      start <- c(rep(NA, length(parameters(base))), res)
+
+      if(is.null(etastart))
+          etastart <- as.numeric(predict(base))
+
+      cat("Running real model...\n")
+  }
+
+  if(symmetric)
       f <- sprintf("Freq ~ %s + %s %s+ instances(MultHomog(%s, %s), %i)",
                    vars[1], vars[2], diagstr, vars[1], vars[2], nd)
-
-
-      if(nastart)
-          start <- NULL
-  }
-  else {
-      if(nastart) {
-          cat("Running base model to find starting values...\n")
-
-          args <- list(formula=as.formula(sprintf("Freq ~ %s + %s %s", vars[1], vars[2], diagstr)),
-                       data=tab, family=family, weights=weights,
-                       tolerance=tolerance, iterMax=iterMax)
-
-          base <- do.call("gnm", c(args, list(...)))
-
-          # residSVD evaluates the variable names in parent.frame(), which uses any object
-          # called "vars" in the global environment if not handled like this
-          res <- eval(parse(text=sprintf("residSVD(base, %s, %s, %i)", vars[1], vars[2], nd)))
-          start <- c(parameters(base), res)
-
-          if(is.null(etastart))
-              etastart <- as.numeric(predict(base))
-
-          cat("Running real model...\n")
-      }
-
+  else
       f <- sprintf("Freq ~ %s + %s %s+ instances(Mult(%s, %s), %i)",
                    vars[1], vars[2], diagstr, vars[1], vars[2], nd)
-  }
 
   args <- list(formula=as.formula(f), data=tab,
-               family=family, start=start, etastart=etastart,
+               family=family, weights=weights, start=start, etastart=etastart,
                tolerance=tolerance, iterMax=iterMax, verbose=verbose, trace=trace)
 
   model <- do.call("gnm", c(args, list(...)))
@@ -91,14 +84,14 @@ rc <- function(tab, nd=1, symmetric=FALSE, diagonal=FALSE,
 
   model$call <- match.call()
 
-  model$assoc <- assoc(model, weighting=weighting)
+  model$assoc <- assoc(model, weighting=weighting, rowsup=rowsup, colsup=colsup)
 
 
   if(se %in% c("jackknife", "bootstrap")) {
       jb <- jackboot(se, ncpus, nreplicates, tab, model,
                      assoc1=getS3method("assoc", class(model)), assoc2=NULL,
-                     weighting, family, weights,
-                     if(nastart) base else NULL, verbose, trace, ...)
+                     weighting, rowsup=rowsup, colsup=colsup,
+                     family, weights, verbose, trace, start, etastart, ...)
       model$assoc$covmat <- jb$covmat
       model$assoc$adj.covmats <- jb$adj.covmats
       model$assoc$boot.results <- jb$boot.results
@@ -116,20 +109,13 @@ rc <- function(tab, nd=1, symmetric=FALSE, diagonal=FALSE,
   model
 }
 
-assoc.rc <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
+assoc.rc <- function(model, weighting=c("marginal", "uniform", "none"),
+                     rowsup=NULL, colsup=NULL, ...) {
   if(!inherits(model, "gnm"))
       stop("model must be a gnm object")
 
-  # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-  if(length(dim(model$data)) == 2)
-      tab <- as.table(model$data[!is.na(rownames(model$data)),
-                                 !is.na(colnames(model$data))])
-  else if(length(dim(model$data)) == 3)
-      tab <- as.table(model$data[!is.na(rownames(model$data)),
-                                 !is.na(colnames(model$data)),
-                                 !is.na(dimnames(model$data)[[3]])])
-  else
-      stop("Only two and three dimensional tables are supported")
+  tab <- prepareTable(model$data, TRUE, rowsup, colsup)
+  vars <- names(dimnames(tab))
 
   # Weight with marginal frequencies, cf. Becker & Clogg (1994), p. 83-84, and Becker & Clogg (1989), p. 144.
   weighting <- match.arg(weighting)
@@ -146,11 +132,6 @@ assoc.rc <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
       cp <- rep(1, ncol(tab))
   }
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2")
 
   # Prepare matrices before filling them
   row <- matrix(NA, nrow(tab), 0)
@@ -226,6 +207,7 @@ assoc.rc <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
       }
   }
 
+
   ## Prepare objects
   phi <- rbind(c(phi))
   dim(row)[3] <- dim(col)[3] <- 1
@@ -246,28 +228,41 @@ assoc.rc <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
           rownames(dg) <- "All levels"
   }
 
+  if(length(dim(tab)) == 3) {
+      row.weights <- apply(tab, c(1, 3), sum, na.rm=TRUE)
+      col.weights <- apply(tab, c(2, 3), sum, na.rm=TRUE)
+  }
+  else {
+      row.weights <- as.matrix(apply(tab, 1, sum, na.rm=TRUE))
+      col.weights <- as.matrix(apply(tab, 2, sum, na.rm=TRUE))
+  }
+
   obj <- list(phi = phi, row = row, col = col, diagonal = dg,
-              weighting = weighting, row.weights = rp, col.weights = cp)
+              weighting = weighting, row.weights = row.weights, col.weights = col.weights)
+
+
+  ## Supplementary rows/columns
+  if(!is.null(rowsup) || !is.null(colsup)) {
+      sup <- sup.scores.rc(model, tab, obj, rowsup, colsup)
+
+      obj$row <- sup$row
+      obj$col <- sup$col
+      obj$row.weights <- sup$row.weights
+      obj$col.weights <- sup$col.weights
+  }
 
   class(obj) <- c("assoc.rc", "assoc")
   obj
 }
 
 ## RC(M) model with symmetric row and column scores
-assoc.rc.symm <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
+assoc.rc.symm <- function(model, weighting=c("marginal", "uniform", "none"),
+                          rowsup=NULL, colsup=NULL, ...) {
   if(!inherits(model, "gnm"))
       stop("model must be a gnm object")
 
-  # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-  if(length(dim(model$data)) == 2)
-      tab <- as.table(model$data[!is.na(rownames(model$data)),
-                                 !is.na(colnames(model$data))])
-  else if(length(dim(model$data)) == 3)
-      tab <- as.table(model$data[!is.na(rownames(model$data)),
-                                 !is.na(colnames(model$data)),
-                                 !is.na(dimnames(model$data)[[3]])])
-  else
-      stop("Only two and three dimensional tables are supported")
+  tab <- prepareTable(model$data, TRUE, rowsup, colsup)
+  vars <- names(dimnames(tab))
 
   # Weight with marginal frequencies, cf. Becker & Clogg (1994), p. 83-84, and Becker & Clogg (1989), p. 144.
   weighting <- match.arg(weighting)
@@ -278,9 +273,6 @@ assoc.rc.symm <- function(model, weighting=c("marginal", "uniform", "none"), ...
   else
       p <- rep(1, nrow(tab))
 
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2")
 
   sc <- matrix(NA, nrow(tab), 0)
 
@@ -359,11 +351,30 @@ assoc.rc.symm <- function(model, weighting=c("marginal", "uniform", "none"), ...
           rownames(dg) <- "All levels"
   }
 
+  if(length(dim(tab)) == 3) {
+      row.weights <- apply(tab, c(1, 3), sum, na.rm=TRUE)
+      col.weights <- apply(tab, c(2, 3), sum, na.rm=TRUE)
+  }
+  else {
+      row.weights <- as.matrix(apply(tab, 1, sum, na.rm=TRUE))
+      col.weights <- as.matrix(apply(tab, 2, sum, na.rm=TRUE))
+  }
+
   obj <- list(phi = phi, row = sc, col= sc, diagonal = dg,
-              weighting = weighting, row.weights = p, col.weights = p)
+              weighting = weighting, row.weights = row.weights, col.weights = col.weights)
+
+  ## Supplementary rows/columns
+  if(!is.null(rowsup) || !is.null(colsup)) {
+      sup <- sup.scores.rc(model, tab, obj, rowsup, colsup, symmetry="symmetric")
+
+      obj$row <- sup$row
+      obj$col <- sup$col
+      obj$row.weights <- sup$row.weights
+      obj$col.weights <- sup$col.weights
+  }
 
   class(obj) <- c("assoc.rc", "assoc.symm", "assoc")
   obj
 }
 
-assoc <- function(model, weighting, ...) UseMethod("assoc", model)
+assoc <- function(model, weighting, rowsup, colsup, ...) UseMethod("assoc", model)

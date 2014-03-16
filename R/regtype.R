@@ -2,7 +2,7 @@
 
 unidiff <- function(tab, diagonal=c("included", "excluded", "only"),
                     constrain="auto",
-                    weighting=c("marginal", "uniform", "none"), norm=2,
+                    weighting=c("marginal", "uniform", "none"),
                     family=poisson,
                     tolerance=1e-8, iterMax=5000,
                     trace=FALSE, verbose=TRUE,
@@ -92,9 +92,29 @@ unidiff <- function(tab, diagonal=c("included", "excluded", "only"),
       rp1 <- prop.table(rp)
       cp1 <- prop.table(cp)
 
+      # Stable coefficients
       mat <- matrix(0, nr, nc)
       con <- matrix(0, length(coef(model)), length(mat))
-      ind <- pickCoef(model, sprintf("Mult\\(Exp\\(\\Q%s\\E\\)", vars[3]))
+      ind <- pickCoef(model, sprintf("^%s(\\Q%s\\E):%s(\\Q%s\\E)$",
+                                     vars[1], paste(rownames(tab), collapse="\\E|\\Q"),
+                                     vars[2], paste(colnames(tab), collapse="\\E|\\Q")))
+      for(i in 1:nr) {
+          for(j in 1:nc) {
+              mat[] <- 0
+              mat[i,] <- -cp1
+              mat[,j] <- -rp1
+              mat[i,j] <- 1 - rp1[i] - cp1[j]
+              mat <- mat + rp1 %o% cp1
+              con[ind, (j - 1) * nr + i] <- mat
+          }
+      }
+      colnames(con) <- names(ind)
+      model$regtype$stable <- gnm::se(model, con, checkEstimability=checkEstimability)
+
+      # Varying coefficients
+      mat <- matrix(0, nr, nc)
+      con <- matrix(0, length(coef(model)), length(mat))
+      ind <- pickCoef(model, sprintf("Mult\\(\\Q%s\\E\\,", vars[3]))
       for(i in 1:nr) {
           for(j in 1:nc) {
               mat[] <- 0
@@ -107,18 +127,9 @@ unidiff <- function(tab, diagonal=c("included", "excluded", "only"),
       }
 
       colnames(con) <- names(ind)
-      model$unidiff$interaction <- gnm::se(model, con, checkEstimability=checkEstimability)
+      model$regtype$variation <- gnm::se(model, con, checkEstimability=checkEstimability)
 
-      if(weighting == "marginal") {
-          model$unidiff$phi <- maor(fitted(model)[,,1], TRUE, norm=norm,
-                                    row.weights=rp, col.weights=cp)
-          model$unidiff$maor <- maor(fitted(model)[,,1], norm=norm,
-                                    row.weights=rp, col.weights=cp)
-      }
-      else {
-          model$unidiff$phi <- maor(fitted(model)[,,1], TRUE, norm=norm, weighting=weighting)
-          model$unidiff$maor <- maor(fitted(model)[,,1], norm=norm, weighting=weighting)
-      }
+      model$regtype$phi <- sqrt(sum(model$unidiff$interaction$Estimate^2 * rp %o% cp))
   }
   else if(diagonal == "only"){
       if(weighting != "uniform")
@@ -162,7 +173,7 @@ print.unidiff <- function(x, digits=max(3, getOption("digits") - 4), ...) {
         digits=digits, print.gap=2, ...)
 
   if(length(x$unidiff$phi) > 0) {
-      cat("\nLayer intrinsic association coefficients:\n")
+      cat("\nLayer phi association coefficients:\n")
       print(setNames(exp(x$unidiff$layer$qvframe$estimate) * x$unidiff$phi, row.names(x$unidiff$layer$qvframe)),
             digits=digits, print.gap=2, ...)
   }
@@ -259,9 +270,9 @@ print.summary.unidiff <- function(x, digits=max(3, getOption("digits") - 4), ...
       "\nAIC:                   ", x$bic, "\n", sep="")
 }
 
-plot.unidiff <- function(x, what=c("layer.coef", "phi", "maor"),
+plot.unidiff <- function(x, what=c("layer.coefficient", "phi", "odds.ratio"),
                          se.type=c("quasi.se", "se"), conf.int=.95,
-                         numeric.auto=TRUE, type="p",
+                         numeric.auto=TRUE, type="o",
                          xlab=names(dimnames(x$data))[3], ylab=NULL, add=FALSE, ...) {
   if(!inherits(x, "unidiff"))
       stop("x must be a unidiff object")
@@ -270,12 +281,12 @@ plot.unidiff <- function(x, what=c("layer.coef", "phi", "maor"),
   se.type <- match.arg(se.type)
 
   if(is.null(ylab)) {
-      if(what == "layer.coef")
+      if(what == "layer.coefficient")
           ylab <- "Log odds ratio coefficient"
       else if(what == "phi")
           ylab <- "Intrinsic association coefficient"
       else
-          ylab <- "Mean absolute odds ratio"
+          ylab <- "Average odds ratio"
   }
 
   qv <- x$unidiff$layer$qvframe
@@ -297,15 +308,16 @@ plot.unidiff <- function(x, what=c("layer.coef", "phi", "maor"),
   tops <- exp(tops)
   tails <- exp(tails)
 
-  if(what == "phi") {
+  if(what != "layer.coefficient") {
       coefs <- coefs * x$unidiff$phi
       tops <- tops * x$unidiff$phi
       tails <- tails * x$unidiff$phi
   }
-  else if(what == "maor") {
-      coefs <- x$unidiff$maor^coefs
-      tops <- x$unidiff$maor^tops
-      tails <- x$unidiff$maor^tails
+
+  if(what == "odds.ratio") {
+      coefs <- exp(coefs)
+      tops <- exp(tops)
+      tails <- exp(tails)
   }
 
   range <- max(tops) - min(tails)

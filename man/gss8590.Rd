@@ -13,12 +13,13 @@
 data(gss8590)
 }
 \references{
-  Wong, R.S-K. (2001). Multidimensional Association Models : A Multilinear Approach
+  Wong, R.S-K. (2001). Multidimensional Association Models : A Multilinear Approach.
     \emph{Sociol. Methods & Research} 30, 197-240, Table 2.
+
   Wong, R.S-K. (2010). \emph{Association models}. SAGE. 32, Table 2.3 B.
 }
 \examples{
-  ## see \link{\code{rc}} and \link{\code{plot.rc}}
+  ## see ?rc and ?plot.rc
   # The table reported in Wong (2010) has a cell inconsistent with
   # what was reported in Wong (2001). To fix this:
   data(gss8590)

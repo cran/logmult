@@ -52,18 +52,23 @@ anoas <- function(tab, nd=3, symmetric=FALSE, diagonal=FALSE, ...) {
 
   models[[2]] <- rc(tab, nd=1, symmetric=symmetric, diagonal=diagonal, ...)
 
-  npar <- if(symmetric) nrow(tab) else nrow(tab) + ncol(tab)
+  if(is.null(models[[2]]))
+      stop("Model with 1 dimension could not be fitted.")
 
-  for(i in 2:nd) {
-      if(is.null(models[[i]]))
-          stop(sprintf("Model with %i dimensions could not be fitted.", i-1))
+  if(nd > 1) {
+      npar <- if(symmetric) nrow(tab) else nrow(tab) + ncol(tab)
 
-      cat(sprintf("Fitting model with %i dimensions...\n", i))
+      for(i in 2:nd) {
+          if(is.null(models[[i]]))
+              stop(sprintf("Model with %i dimensions could not be fitted.", i-1))
 
-      models[[i+1]] <- rc(tab, nd=i, symmetric=symmetric, diagonal=diagonal,
-                          start=c(rep(NA, length(parameters(models[[i]])) - (i-1) * npar),
-                                  tail(parameters(models[[i]]), (i-1) * npar), rep(NA, npar)),
-                          ...)
+          cat(sprintf("Fitting model with %i dimensions...\n", i))
+
+          models[[i+1]] <- rc(tab, nd=i, symmetric=symmetric, diagonal=diagonal,
+                              start=c(rep(NA, length(parameters(models[[i]])) - (i-1) * npar),
+                                      tail(parameters(models[[i]]), (i-1) * npar), rep(NA, npar)),
+                              ...)
+      }
   }
 
   class(models) <- "anoas"
@@ -112,12 +117,13 @@ anoasL <- function(tab, nd=3, layer.effect=c("homogeneous.scores", "heterogeneou
   else
       diagstr <- ""
 
+  eliminate <- eval(parse(text=sprintf("quote(%s:%s)", vars[1], vars[3])))
 
   cat("Fitting conditional independence model...\n")
 
   args <- list(formula=as.formula(sprintf("Freq ~ %s + %s + %s + %s:%s + %s:%s %s",
                                           vars[1], vars[2], vars[3], vars[1], vars[3], vars[2], vars[3], diagstr)),
-               data=tab, family=poisson)
+               data=tab, family=poisson, eliminate=eliminate)
 
   models[[1]] <- do.call("gnm", c(args, list(...)))
 
@@ -126,29 +132,34 @@ anoasL <- function(tab, nd=3, layer.effect=c("homogeneous.scores", "heterogeneou
 
   models[[2]] <- rcL(tab, nd=1, layer.effect=layer.effect, symmetric=symmetric, diagonal=diagonal, ...)
 
-  npar <- if(layer.effect == "homogeneous.scores") {
-              if(symmetric) dim(tab)[3] + nrow(tab) else dim(tab)[3] + nrow(tab) + ncol(tab)
-          }
-          else if (layer.effect == "heterogeneous") {
-              if(symmetric) dim(tab)[3] * nrow(tab) else dim(tab)[3] * (nrow(tab) + ncol(tab))
-          }
-          else {
-              if(symmetric) nrow(tab) else nrow(tab) + ncol(tab)
-          }
+  if(is.null(models[[2]]))
+      stop("Model with 1 dimension could not be fitted.")
 
-  for(i in 2:nd) {
-      if(is.null(models[[i]]))
-          stop(sprintf("Model with %i dimensions could not be fitted.", i-1))
+  if(nd > 1) {
+      npar <- if(layer.effect == "homogeneous.scores") {
+                  if(symmetric) dim(tab)[3] + nrow(tab) else dim(tab)[3] + nrow(tab) + ncol(tab)
+              }
+              else if (layer.effect == "heterogeneous") {
+                  if(symmetric) dim(tab)[3] * nrow(tab) else dim(tab)[3] * (nrow(tab) + ncol(tab))
+              }
+              else {
+                  if(symmetric) nrow(tab) else nrow(tab) + ncol(tab)
+              }
 
-      cat(sprintf("Fitting model with %i dimensions...\n", i))
+      for(i in 2:nd) {
+          if(is.null(models[[i]]))
+              stop(sprintf("Model with %i dimensions could not be fitted.", i-1))
 
-      models[[i+1]] <- rcL(tab, nd=i, layer.effect=layer.effect, symmetric=symmetric, diagonal=diagonal,
-                           start=c(rep(NA, length(parameters(models[[i]])) - (i-1) * npar),
-                                   tail(parameters(models[[i]]), (i-1) * npar), rep(NA, npar)),
-                           ...)
+          cat(sprintf("Fitting model with %i dimensions...\n", i))
+
+          models[[i+1]] <- rcL(tab, nd=i, layer.effect=layer.effect, symmetric=symmetric, diagonal=diagonal,
+                               start=c(rep(NA, length(parameters(models[[i]])) - (i-1) * npar),
+                                       tail(parameters(models[[i]]), (i-1) * npar), rep(NA, npar)),
+                               ...)
+      }
   }
 
-  class(models) <- c("anoas", "anoasL")
+  class(models) <- c("anoasL", "anoas")
   attr(models, "symmetric") <- symmetric
 
   models
@@ -165,12 +176,12 @@ summary.anoas <- function(object, ...) {
   df <- sapply(object, function(model) if(!is.null(model)) model$df.residual else NA)
   dev <- sapply(object, function(model) if(!is.null(model)) model$deviance else NA)
   diss <- sapply(object, function(model) {
-      if(!is.null(model)) sum(abs(fitted(model) - model$data))/sum(abs(fitted(model)))*100/2
+      if(!is.null(model)) sum(na.omit(abs(c(residuals(model, "response")))))/sum(na.omit(abs(c(fitted(model)))))/2
       else NA })
-  bic <- sapply(object, function(model) if(!is.null(model)) model$deviance - log(sum(model$data)) * model$df.residual else NA)
+  bic <- sapply(object, function(model) if(!is.null(model)) model$deviance - log(sum(na.omit(c(model$data)))) * model$df.residual else NA)
   aic <- sapply(object, function(model) if(!is.null(model)) model$deviance - 2 * model$df.residual else NA)
 
-  result <- data.frame(df, dev, dev/dev[1] * 100, diss, bic, aic, c(NA, diff(dev)), c(NA, diff(df)))
+  result <- data.frame(df, dev, dev/dev[1] * 100, diss * 100, bic, aic, c(NA, diff(dev)), c(NA, diff(df)))
 
   names(result) <- c("Res. Df", "Res. Dev", "Dev./Indep. (%)", "Dissim. (%)", "BIC", "AIC", "Dev.", "Df")
 

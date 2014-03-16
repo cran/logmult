@@ -2,7 +2,7 @@
 # See also ?rc
 
 timings <- as.numeric(Sys.getenv("_R_CHECK_TIMINGS_"))
-if(is.na(timings) || timings > 60) {
+if(!is.na(timings) && timings > 60) {
 
 library(logmult)
 data(gss8590)
@@ -12,14 +12,14 @@ data(gss8590)
 tab <- margin.table(gss8590[,,c(2,4)], 1:2)
 tab[2,4] <- 49
 
-model <- rc(tab, nd=2, weighting="none", se="jackknife")
+model <- rc(tab, nd=2, weighting="none", se="jackknife", start=NA)
 
 model
 summary(model) # Jackknife standard errors are slightly different
                # from their asymptotic counterparts
 
 # Compare with bootstrap standard errors
-model2 <- rc(tab, nd=2, weighting="none", se="bootstrap")
+model2 <- rc(tab, nd=2, weighting="none", se="bootstrap", start=NA)
 plot(model, conf.ellipses=0.95)
 summary(model2)
 

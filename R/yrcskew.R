@@ -46,11 +46,9 @@ yrcskew <- function(tab, nd.symm=NA, nd.skew=1, diagonal=FALSE,
   if(length(dim(tab)) > 2)
       tab <- margin.table(tab, 1:2)
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2")
+  tab <- prepareTable(tab, TRUE)
+  vars <- names(dimnames(tab))
+
 
   if(diagonal && !is.na(nd.symm))
       diagstr <- sprintf("+ Diag(%s, %s) ", vars[1], vars[2])
@@ -71,7 +69,7 @@ yrcskew <- function(tab, nd.symm=NA, nd.skew=1, diagonal=FALSE,
       cat("Running base model to find starting values...\n")
 
       args <- list(formula=as.formula(basef),
-                   data=tab, family=family,
+                   data=tab, weights=weights, family=family,
                    tolerance=1e-3, iterMax=iterMax, verbose=verbose, trace=trace)
 
       base <- do.call("gnm", c(args, list(...)))
@@ -95,7 +93,7 @@ yrcskew <- function(tab, nd.symm=NA, nd.skew=1, diagonal=FALSE,
 
   args <- list(formula=eval(as.formula(f)), data=tab,
                constrain="YRCSkew\\(.*\\)0$",
-               family=family, start=start, etastart=etastart,
+               family=family, weights=weights, start=start, etastart=etastart,
                tolerance=tolerance, iterMax=iterMax, verbose=verbose, trace=trace)
 
   model <- do.call("gnm", c(args, list(...)))
@@ -120,7 +118,8 @@ yrcskew <- function(tab, nd.symm=NA, nd.skew=1, diagonal=FALSE,
       assoc2 <- if(is.na(nd.symm)) NULL else assoc.yrcskew
 
       jb <- jackboot(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
-                     weighting, family, weights, base, verbose, trace, ...)
+                     weighting, NULL, NULL, family, weights,
+                     verbose, trace, start, etastart, ...)
 
       if(!is.na(nd.symm)) {
           model$assoc$covtype <- se
@@ -167,32 +166,17 @@ assoc.yrcskew <- function(model, weighting=c("marginal", "uniform", "none"), ...
   if(!inherits(model, "gnm"))
       stop("model must be a gnm object")
 
-#   # Reproduce original 2x2 table if it was modified (e.g. by yrcskew())
-#   # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-#   tab <- as.data.frame(model$data[!is.na(rownames(model$data)),
-#                                   !colnames(model$data) %in% c("mincat", "maxcat", "skew")])
-#   tab <- xtabs(sprintf("Freq ~ %s + %s", colnames(tab)[1], colnames(tab)[2]),
-#                data=tab)
-#   tab <- as.table(tab)
-  # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-  tab <- as.table(model$data[!is.na(rownames(model$data)),
-                             !is.na(colnames(model$data))])
-
-  weighting <- match.arg(weighting)
+  tab <- prepareTable(model$data, TRUE)
+  vars <- names(dimnames(tab))
 
   # Weight with marginal frequencies, cf. Becker & Clogg (1994), p. 83-84, et Becker & Clogg (1989), p. 144.
+  weighting <- match.arg(weighting)
   if(weighting == "marginal")
       p <- prop.table(apply(tab, 1, sum, na.rm=TRUE) + apply(tab, 2, sum, na.rm=TRUE))
   else if(weighting == "uniform")
       p <- rep(1/nrow(tab), nrow(tab))
   else
       p <- rep(1, nrow(tab))
-
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2")
 
 
   ## Get skew association coefficients
@@ -272,8 +256,11 @@ assoc.yrcskew <- function(model, weighting=c("marginal", "uniform", "none"), ...
           rownames(dg) <- "All levels"
   }
 
+  row.weights <- as.matrix(apply(tab, 1, sum, na.rm=TRUE))
+  col.weights <- as.matrix(apply(tab, 2, sum, na.rm=TRUE))
+
   obj <- list(phi = phisk, row = sc, col = sc,  diagonal = dg,
-              weighting = weighting, row.weights = p, col.weights = p)
+              weighting = weighting, row.weights = row.weights, col.weights = col.weights)
 
   class(obj) <- c("assoc.yrcskew", "assoc.symm", "assoc")
   obj
@@ -422,8 +409,11 @@ assoc.yrcskew <- function(model, weighting=c("marginal", "uniform", "none"), ...
 #           rownames(dg) <- "All levels"
 #   }
 # 
+#   row.weights <- apply(tab, 1, sum, na.rm=TRUE)
+#   col.weights <- apply(tab, 2, sum, na.rm=TRUE)
+#
 #   obj <- list(phi = phi, row = sc, col = sc, phisk = phi, rowsk = scsk, colsk = scsk,
-#               diagonal = dg, weighting = weighting, row.weights = p, col.weights = p)
+#               diagonal = dg, weighting = weighting, row.weights = row.weights, col.weights = col.weights)
 # 
 #   class(obj) <- c("assoc.yrcskew.homog", "assoc.symm", "assoc")
 #   obj

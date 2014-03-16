@@ -5,7 +5,7 @@ hmskewL <- function(tab, nd.symm=NA, layer.effect.skew=c("homogeneous.scores", "
                     diagonal=c("none", "heterogeneous", "homogeneous"),
                     weighting=c("marginal", "uniform", "none"), se=c("none", "jackknife", "bootstrap"),
                     nreplicates=100, ncpus=getOption("boot.ncpus"),
-                    family=poisson, weights=NULL, start=NA, etastart=NULL, tolerance=1e-8, iterMax=5000,
+                    family=poisson, weights=NULL, start=NULL, etastart=NULL, tolerance=1e-8, iterMax=5000,
                     trace=FALSE, verbose=TRUE, ...) {
   layer.effect.skew <- match.arg(layer.effect.skew)
   layer.effect.symm <- match.arg(layer.effect.symm)
@@ -17,17 +17,14 @@ hmskewL <- function(tab, nd.symm=NA, layer.effect.skew=c("homogeneous.scores", "
   if(length(dim(tab)) < 3)
       stop("tab must have (at least) three dimensions")
 
-  if(!is.na(nd.symm) && nd.symm <= 0)
-      stop("nd must be strictly positive")
-
   if(nrow(tab) != ncol(tab))
       stop("tab must be a square table for asymmetry models")
 
   if(!all(rownames(tab) == colnames(tab)))
       stop("tab must have identical row and column names for asymmetry models")
 
-  if(!is.na(nd.symm) && nd.symm <= 0)
-      stop("nd.symm must be NA or strictly positive")
+  if(!is.na(nd.symm) && nd.symm < 0)
+      stop("nd.symm must be NA, zero or positive")
 
   if(!is.na(nd.symm) && nd.symm/2 > min(nrow(tab), ncol(tab)) - 1)
       stop("Number of dimensions of symmetric association cannot exceed 2 * (min(nrow(tab), ncol(tab)) - 1)")
@@ -43,12 +40,9 @@ hmskewL <- function(tab, nd.symm=NA, layer.effect.skew=c("homogeneous.scores", "
   if(length(dim(tab)) > 3)
       tab <- margin.table(tab, 1:3)
 
+  tab <- prepareTable(tab, FALSE)
+  vars <- names(dimnames(tab))
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2", "Var3")
 
   if(diagonal == "heterogeneous")
       diagstr <- sprintf("+ %s:Diag(%s, %s) ", vars[3], vars[1], vars[2])
@@ -59,143 +53,101 @@ hmskewL <- function(tab, nd.symm=NA, layer.effect.skew=c("homogeneous.scores", "
 
   f1 <- sprintf("Freq ~ %s + %s + %s + %s:%s + %s:%s",
                 vars[1], vars[2], vars[3], vars[1], vars[3], vars[2], vars[3])
-  # FIXME: we should be able to eliminate 3:Symm(1, 2) in other cases, but this triggers a "numerically singular system" error in the last model
-  #if(is.na(nd.symm) && layer.effect.symm == "none")
-  #   eliminate <- eval(parse(text=sprintf("quote(Symm(%s, %s))", vars[1], vars[2])))
-  #else
-      eliminate <- eval(parse(text=sprintf("quote(%s:%s)", vars[1], vars[3])))
+
+  if(is.na(nd.symm)) {
+      if(layer.effect.symm == "homogeneous.scores")
+          # Handled at the top of the function
+          stop()
+      else if(layer.effect.symm == "heterogeneous")
+          f1.symm <- sprintf("+ %s:Symm(%s, %s)",
+                             vars[3], vars[1], vars[2])
+      else if(layer.effect.symm == "uniform")
+          f1.symm <- sprintf("+ Mult(Exp(%s), Symm(%s, %s))", 
+                             vars[3], vars[1], vars[2])
+      else
+          f1.symm <- sprintf("+ Symm(%s, %s)", 
+                             vars[1], vars[2])
+  }
+  else if(!is.na(nd.symm) && nd.symm > 0) {
+      if(layer.effect.symm == "uniform") {
+          # Handled at the top of the function
+          stop()
+      }
+      else if(layer.effect.symm == "homogeneous.scores") {
+          f1.symm <- ""
+
+          for(i in 1:nd.symm)
+              f1.symm <- paste(f1.symm, sprintf("+ Mult(%s, MultHomog(%s, %s), inst = %i)",
+                                                vars[3], vars[1], vars[2], i))
+      }
+      else if(layer.effect.symm == "heterogeneous") {
+          stop("Symmetric association with heterogeneous layer effect is currently not supported")
+
+          f1.symm <- sprintf("+ instances(MultHomog(%s:%s, %s:%s), %i)",
+                             vars[3], vars[1], vars[3], vars[2], nd.symm)
+      }
+      else {
+          f1.symm <- sprintf("+ instances(MultHomog(%s, %s), %i)",
+                             vars[1], vars[2], nd.symm)
+      }
+  }
+  else {
+      f1.symm <- ""
+  }
 
   base <- NULL
 
   nastart <- length(start) == 1 && is.na(start)
 
+  if(is.na(nd.symm))
+      eliminate <- eval(parse(text=sprintf("quote(Symm(%s, %s))", vars[1], vars[2])))
+  else
+      eliminate <- eval(parse(text=sprintf("quote(%s:%s)", vars[1], vars[3])))
 
   if(nastart) {
       cat("Running base model to find starting values...\n")
 
       args <- list(formula=as.formula(paste(f1, diagstr)), data=tab,
-                   family=family, eliminate=eliminate,
+                   family=family, weights=weights,
+                   eliminate=eval(parse(text=sprintf("quote(%s:%s)", vars[1], vars[3]))),
                    tolerance=1e-6, iterMax=iterMax)
 
       args <- c(args, list(...))
 
       base <- do.call("gnm", args)
 
-      start <- parameters(base)
+      args$method <- "coefNames"
+      args$formula <- as.formula(paste(f1, diagstr, f1.symm))
+      args$eliminate <- eliminate
+      npar <- length(do.call("gnm", args))
+
+      # Use base model without symmetric interaction as this seems to give better results
+      # when quasi-symmetry is specified.
+      # Using NA for all linear parameters usually works better than their values in the base model
+      if(layer.effect.skew == "homogeneous.scores")
+          start <- c(rep(NA, npar), rep(NA, dim(tab)[3]),
+                     residEVDL(base, 1, layer.effect.skew, skew=TRUE))
+      else
+          start <- c(rep(NA, npar),
+                     residEVDL(base, 1, layer.effect.skew, skew=TRUE))
+
+      if(is.null(etastart))
+          etastart <- as.numeric(predict(base))
+
+      cat("Running real model...\n")
   }
 
-  if(is.na(nd.symm)) {
-      if(layer.effect.symm == "homogeneous.scores") {
-          # Handled at the top of the function
-          stop()
-      }
-      else if(layer.effect.symm == "heterogeneous") {
-          f2 <- sprintf("+ %s:Symm(%s, %s)",
-                        vars[3], vars[1], vars[2])
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, dim(tab)[3] * ((nrow(tab)^2 + nrow(tab))/2 - 1)))
-      }
-      else if(layer.effect.symm == "uniform") {
-          f2 <- sprintf("+ Mult(Exp(%s), Symm(%s, %s))", 
-                        vars[3], vars[1], vars[2])
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, dim(tab)[3] + (nrow(tab)^2 + nrow(tab))/2))
-      }
-      else {
-          f2 <- sprintf("+ Symm(%s, %s)", 
-                        vars[1], vars[2])
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, (nrow(tab)^2 + nrow(tab))/2 - 1))
-      }
-  }
-  else {
-      if(layer.effect.symm == "uniform") {
-          # Handled at the top of the function
-          stop()
-      }
-      else if(layer.effect.symm == "homogeneous.scores") {
-          f2 <- ""
-
-          for(i in 1:nd.symm)
-              f2 <- paste(f2, sprintf("+ Mult(%s, MultHomog(%s, %s), inst = %i)",
-                                      vars[3], vars[1], vars[2], i))
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd.symm * (nrow(tab) + dim(tab)[3])))
-      }
-      else if(layer.effect.symm == "heterogeneous") {
-          stop("Symmetric association with heterogeneous layer effect is currently not supported")
-
-          f2 <- sprintf("+ instances(MultHomog(%s:%s, %s:%s), %i)",
-                        vars[3], vars[1], vars[3], vars[2], nd.symm)
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd.symm * dim(tab)[3] * nrow(tab)))
-      }
-      else {
-          f2 <- sprintf("+ instances(MultHomog(%s, %s), %i)",
-                        vars[1], vars[2], nd.symm)
-
-          if(nastart)
-              start <- c(parameters(base), rep(NA, nd.symm * nrow(tab)))
-      }
-  }
-
-  if(layer.effect.skew == "heterogeneous") {
+  if(layer.effect.skew == "heterogeneous")
       f2.skew <- sprintf("+ HMSkew(%s:%s, %s:%s)",
                          vars[1], vars[3], vars[2], vars[3])
-
-      if(nastart)
-          start <- c(start, rep(NA, dim(tab)[3] * 2 * nrow(tab)))
-  }
-  else if(layer.effect.skew == "homogeneous.scores") {
+  else if(layer.effect.skew == "homogeneous.scores")
       f2.skew <- sprintf("+ Mult(%s, HMSkew(%s, %s))",
                          vars[3], vars[1], vars[2])
-
-      if(nastart)
-          start <- c(start, rep(NA, dim(tab)[3] + 2 * nrow(tab)))
-  }
-  else {
+  else
       f2.skew <- sprintf("+ HMSkew(%s, %s)", 
                          vars[1], vars[2])
 
-      if(nastart)
-          start <- c(start, rep(NA, 2 * nrow(tab)))
-  }
-
-  # Heterogeneous diagonal parameters can make the convergence really slow unless
-  # correct starting values are used
-  if(!is.null(base)) {
-      cat("Running second base model to find starting values...\n")
-
-      args <- list(formula=as.formula(paste(f1, diagstr, f2, f2.skew)),
-                   data=tab, family=family, start=start, eliminate=eliminate,
-                   constrain=seq(1, length(parameters(base))), constrainTo=parameters(base),
-                   tolerance=1e-3, iterMax=iterMax, verbose=verbose, trace=trace)
-
-      base2 <- do.call("gnm", c(args, list(...)))
-
-      # If model fails (can always happen), do not fail completely but start with random values
-      if(is.null(base2))
-          start <- NULL
-      else {
-          start <- parameters(base2)
-
-          if(is.null(etastart))
-              etastart <- as.numeric(predict(base2))
-      }
-  }
-
-  if(!is.null(base) && is.null(etastart))
-      etastart <- as.numeric(predict(base))
-
-  if(!is.null(base))
-      cat("Running real model...\n")
-
-  args <- list(formula=as.formula(paste(f1, diagstr, f2, f2.skew)), data=tab,
+  args <- list(formula=as.formula(paste(f1, diagstr, f1.symm, f2.skew)), data=tab,
                family=family, start=start, etastart=etastart, eliminate=eliminate,
                tolerance=tolerance, iterMax=iterMax, verbose=verbose, trace=trace)
 
@@ -208,7 +160,7 @@ hmskewL <- function(tab, nd.symm=NA, layer.effect.skew=c("homogeneous.scores", "
 
   model$call <- match.call()
 
-  if(is.na(nd.symm)) {
+  if(is.na(nd.symm) || nd.symm == 0) {
       assoc1 <- NULL
   }
   else if(layer.effect.symm == "none") {
@@ -247,12 +199,9 @@ hmskewL <- function(tab, nd.symm=NA, layer.effect.skew=c("homogeneous.scores", "
 
   if(se %in% c("jackknife", "bootstrap")) {
       jb <- jackboot(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
-                     weighting, family, weights,
-                     if(!is.null(base) && !is.null(base2)) base2
-                     else if(!is.null(base)) base
-                     else NULL,
-                     verbose, trace, ...)
-      if(!is.na(nd.symm)) {
+                     weighting, NULL, NULL, family, weights,
+                     verbose, trace, start, etastart, ...)
+      if(!is.na(nd.symm) && nd.symm > 0) {
           model$assoc$covtype <- se
           model$assoc$covmat <- jb$covmat1
           model$assoc$adj.covmats <- jb$adj.covmats1
@@ -274,7 +223,7 @@ hmskewL <- function(tab, nd.symm=NA, layer.effect.skew=c("homogeneous.scores", "
       }
   }
   else {
-      if(!is.na(nd.symm)) {
+      if(!is.na(nd.symm) && nd.symm > 0) {
           model$assoc$covtype <- se
           model$assoc$covmat <- numeric(0)
           model$assoc$adj.covmats <- numeric(0)
@@ -297,10 +246,8 @@ assoc.hmskewL <- function(model, weighting=c("marginal", "uniform", "none"), ...
   if(!inherits(model, "gnm"))
       stop("model must be a gnm object")
 
-  # gnm doesn't include coefficients for NA row/columns, so get rid of them too
-  tab <- as.table(model$data[!is.na(rownames(model$data)),
-                             !is.na(colnames(model$data)),
-                             !is.na(dimnames(model$data)[3])])
+  tab <- prepareTable(model$data, FALSE)
+  vars <- names(dimnames(tab))
 
   nr <- nrow(tab)
   nc <- ncol(tab)
@@ -315,11 +262,6 @@ assoc.hmskewL <- function(model, weighting=c("marginal", "uniform", "none"), ...
   else
       p <- rep(1, nr)
 
-  # When gnm evaluates the formulas, tab will have been converted to a data.frame,
-  # with a fallback if both names are empty
-  vars <- make.names(names(dimnames(tab)))
-  if(length(vars) == 0)
-      vars <- c("Var1", "Var2", "Var3")
 
   homogeneous <- TRUE
 
@@ -386,6 +328,23 @@ assoc.hmskewL <- function(model, weighting=c("marginal", "uniform", "none"), ...
       sc[,1:2,l] <- diag(1/sqrt(p)) %*% sv$u[,1:2] # Eq. A.4.7
       phi <- sv$d[1]
 
+      # Since both dimensions share the same singular value, we cannot distinguish them
+      # and their order is random. The sign of the association reconstructed from scores
+      # must be the same as the original one: we use one cell, since all signs are the same.
+      # This operation affects the results, while the next one is merely a display convention.
+      sc[,1,l] <- sc[,1,l] * sign((sc[1,2,l] * sc[2,1,l] - sc[1,1,l] * sc[2,2,l])/lambda[1,2])
+
+      # Use the convention that we want the null score to be for the first category
+      # on the second dimension, and a positive score on the first dimension
+      # (like original article does with *last* category).
+      # The SVD always sets to 0 the score of the first category on one dimension.
+      # These two operations do not change the actual association.
+      if(which.min(abs(sc[1,,l])) == 1)
+          sc[,,l] <- sc[,,l] %*% matrix(c(0, 1, -1, 0), 2, 2)
+
+      if(sc[1,1,l] < 0)
+          sc[,,l] <- -sc[,,l]
+
       # Integrate phi to layer coefficients
       if(homogeneous)
           layer <- layer * phi
@@ -397,34 +356,12 @@ assoc.hmskewL <- function(model, weighting=c("marginal", "uniform", "none"), ...
   if(homogeneous) {
       if(layer[1,1] < 0) {
           layer <- -layer
-          sc <- -sc
+          sc[, 2,] <- -sc[, 2,]
       }
   }
   # For heterogeneous scores, always keep phi positive
   else {
       sc <- sweep(sc, 3:2, sign(layer), "*")
-  }
-
-  for(l in 1:dim(sc)[3]) {
-      # Since both dimensions share the same singular value, we cannot distinguish them
-      # and their order is random. Use the convention that we want a positive skew association for cell (1, 2)
-      # (implicit in the original article)
-      if(sc[1,2,l] * sc[2,1,l] - sc[1,1,l] * sc[2,2,l] < 0)
-          sc[,,l] <- sc[,2:1,l]
-
-      # Since rotation is also random, align first category to position 0 on the vertical axis,
-      # and on the positive side of the horizontal axis (like original article does with *last* category)
-      if(abs(sc[1,2,l]) > .Machine$double.eps)
-          angle <- acos(sc[1,1,l]/sqrt(sum(sc[1,,l]^2)))
-      else if (sc[1,1,l] < 0)
-          angle <- pi
-      else
-          angle <- 0
-
-      if(sc[1,2,l] < -.Machine$double.eps)
-          angle <- -angle
-
-      sc[,,l] <- sc[,,l] %*% matrix(c(cos(angle), sin(angle), -sin(angle), cos(angle)), 2, 2)
   }
 
   # The reference category is not really at 0, and this makes the display ugly
@@ -453,8 +390,11 @@ assoc.hmskewL <- function(model, weighting=c("marginal", "uniform", "none"), ...
           rownames(dg) <- "All levels"
   }
 
+  row.weights <- apply(tab, c(1, 3), sum, na.rm=TRUE)
+  col.weights <- apply(tab, c(2, 3), sum, na.rm=TRUE)
+
   obj <- list(phi = layer, row = sc, col = sc, diagonal = dg,
-              weighting = weighting, row.weights = p, col.weights = p)
+              weighting = weighting, row.weights = row.weights, col.weights = col.weights)
 
   class(obj) <- c("assoc.hmskewL", "assoc.symm", "assoc")
   obj

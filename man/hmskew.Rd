@@ -4,40 +4,45 @@
 \title{Fitting van der Heijen & Mooijaart Skew-Symmetric Association Model}
 \description{
   Fits a skew-symmetric association model proposed in van der Heijden & Mooijaart (1995)
-  to describe asymmetry of square tables. This model can be combined with symmetric association models
-  like a quasi-symmetry (the default) or symmetric (homogeneous) RC(M) models.
+  to describe asymmetry of square tables. Skew-symmetric association can be combined with
+  quasi-symmetry (the default), quasi-independence, or symmetric (homogeneous) RC(M) associations.
 }
 \usage{
 hmskew(tab, nd.symm = NA, diagonal = FALSE,
        weighting = c("marginal", "uniform", "none"),
+       rowsup = NULL, colsup = NULL,
        se = c("none", "jackknife", "bootstrap"),
        nreplicates = 100, ncpus = getOption("boot.ncpus"),
        family = poisson, weights = NULL,
-       start = NA, etastart = NULL, tolerance = 1e-8,
+       start = NULL, etastart = NULL, tolerance = 1e-8,
        iterMax = 5000, trace = FALSE, verbose = TRUE, ...)
 }
 \arguments{
   \item{tab}{ a square two-way table, or an object (such as a matrix) that can be coerced into a table;
     if present, dimensions above two will be collapsed.}
   \item{nd.symm}{ the number of dimensions to include in the \emph{symmetric} RC(M) association. Cannot exceed
-    \code{2 * min(nrow(tab) - 1, ncol(tab) - 1)} (the model is already saturated at that point).
-    If \code{NA}, a quasi-symmetric association is used instead of a RC(M) model.}
+    \code{2 * min(nrow(tab) - 1, ncol(tab) - 1)} (quasi-symmetry model).
+    If \code{NA} (the default), a full quasi-symmetric association is used instead of a RC(M) model; if \code{0},
+    quasi-independence is used.}
   \item{diagonal}{ should the model include parameters specific to each diagonal cell? This amounts to
     taking quasi-independence, rather than independence, as the baseline model.}
   \item{weighting}{ what weights should be used when normalizing the scores.}
+  \item{rowsup}{ if present, a matrix with the same columns as \code{tab} and rows corresponding to the columns
+                of \code{colsup}, giving supplementary (passive) rows.}
+  \item{colsup}{ if present, a matrix with the same rows as \code{tab} and columns corresponding to the rows of
+                \code{colsup}, giving supplementary (passive) columns.}
   \item{se}{ which method to use to compute standard errors for parameters.}
   \item{nreplicates}{ the number of bootstrap replicates, if enabled.}
   \item{ncpus}{ the number of processes to use for jackknife or bootstrap parallel computing. Defaults to
     the number of cores (see \code{\link[parallel]{detectCores}}), with a maximum of 5, but falls back to 1
-    (no parallelization) if packages \code{parallel} or \code{snow} are not available.}
+    (no parallelization) if package \code{parallel} is not available.}
   \item{family}{ a specification of the error distribution and link function
      to be used in the model. This can be a character string naming
      a family function; a family function, or the result of a call
      to a family function. See \code{\link{family}} details of family functions.}
   \item{weights}{ an optional vector of weights to be used in the fitting process.}
-  \item{start}{either \code{NA} (the default) to use reasonable starting values, \code{NULL} to use
-     random starting values, or a vector of starting values for the parameters in the model;
-     if a starting value is \code{NA}, the default starting value will be used.}
+  \item{start}{either \code{NA} to use optimal starting values, \code{NULL} to use
+     random starting values, or a vector of starting values for the parameters in the model.}
   \item{etastart}{ starting values for the linear predictor; set to \code{NULL} to use either default
      starting values (if \code{start = NA}), or random starting values (in all other cases).}
   \item{tolerance}{ a positive numeric value specifying the tolerance level for
@@ -72,15 +77,15 @@ hmskew(tab, nd.symm = NA, diagonal = FALSE,
   Actual model fitting is performed using \code{\link{gnm}}, which implements the Newton-Raphson algorithm.
   This function simply ensures correct start values are used, in addition to allowing for identification
   of scores even with several dimensions, computation of their jackknife or bootstrap standard errors, and plotting.
-  The default starting values for main parameters are taken from the model without association parameters
-  (\dQuote{base model}); association parameters start with random starting values. In some complex
-  cases, using \code{start = NULL} to get completely random starting values can be more efficient, but it is also
-  less stable.
+  The default starting values for skew association parameters are computed using an eigen value decomposition from the
+  results of the model without skew association component (\dQuote{base model}); if \code{nd.symm} is not \code{NA} and
+  strictly positive, random starting values are used. In some complex cases, using \code{start = NULL} to start with
+  random values can be more efficient, but it is also less stable and can converge to non-optimal solutions.
 }
 \value{
-  A \code{hmskew} object, which is a subclass of an \code{rc.symm} object (see \code{\link{rc}}) unless
-    \code{nd} is \code{NA}. In addition to this class, it contains a \code{assoc.hmskew} component holding
-    information about the \emph{asymmetric} association:
+  A \code{hmskew} object, which is a subclass of an \code{rc.symm} object (see \code{\link{rc}}) if
+    \code{nd.symm} is strictly positive. In addition to this class, it contains a \code{assoc.hmskew} component
+    holding information about the \emph{skew-symmetric} association:
   \item{phi }{The intrisic association parameters, one per dimension.}
   \item{row }{Row scores, normalized so that their (weighted) sum is 0, their (weighted)
     sum of squares is 1, and their (weighted) cross-dimensional correlation is null.}
@@ -121,7 +126,8 @@ Milan Bouchet-Valat
   round(ass$row[,,1] * sqrt(ass$phi[1,1]), d=2)[5:1,]
 
   # Right part of the table
-  round(ass$phi[1] * (ass$row[,2,1] \%o\% ass$row[,1,1] - ass$row[,1,1] \%o\% ass$row[,2,1]), d=3)[5:1, 5:1]
+  round(ass$phi[1] * (ass$row[,2,1] \%o\% ass$row[,1,1] -
+                      ass$row[,1,1] \%o\% ass$row[,2,1]), d=3)[5:1, 5:1]
 
   # Plot
   plot(model, coords="cartesian")

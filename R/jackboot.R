@@ -1,11 +1,12 @@
 # Run jackknife or bootstrap replicates of the model
 jackboot <- function(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
-                     weighting, family, weights, base, verbose, trace, ...) {
+                     weighting, rowsup=NULL, colsup=NULL, family, weights,
+                     verbose, trace, start, etastart,
+                     formula=NULL, design=NULL, Ntotal=NULL, exclude=c(NA, NaN), ...) {
   cat("Computing", se, "standard errors...\n")
 
   if(is.null(ncpus))
       ncpus <- if(require(parallel)) min(parallel::detectCores(), 5)
-               else if(require(snow)) min(snow::detectCores(), 5)
                else 1
 
   if(ncpus > 1 && require(parallel)) {
@@ -20,24 +21,12 @@ jackboot <- function(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
       # Printing output from all nodes at the same time would be a mess, only print "."
       trace <- FALSE
   }
-  else if(ncpus > 1 && require(snow)) {
-      cl <- snow::makeSOCKcluster(rep("localhost", ncpus), outfile="")
-      on.exit(snow::stopCluster(cl))
-
-      libpaths <- .libPaths()
-      snow::clusterExport(cl, "libpaths", env=environment())
-      snow::clusterEvalQ(cl, library(logmult, lib.loc=libpaths,
-                                     warn.conflicts=FALSE, quietly=TRUE, verbose=FALSE))
-
-      # Printing output from all nodes at the same time would be a mess, only print "."
-      trace <- FALSE
-  }
   else {
       cl <- NULL
       ncpus <- 1
   }
 
-  ass1 <- assoc1(model, weighting=weighting)
+  ass1 <- assoc1(model, weighting=weighting, rowsup=rowsup, colsup=colsup)
 
   nl1 <- nrow(ass1$phi)
   nd1 <- ncol(ass1$phi)
@@ -53,7 +42,7 @@ jackboot <- function(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
       int <- 1:len1
   }
   else {
-      ass2 <- assoc2(model, weighting=weighting)
+      ass2 <- assoc2(model, weighting=weighting, rowsup=rowsup, colsup=colsup)
 
       nl2 <- nrow(ass2$phi)
       nd2 <- ncol(ass2$phi)
@@ -69,12 +58,37 @@ jackboot <- function(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
 
   nacount <- 0
 
+  # Add supplementary rows and columns to 'tab' so that they are included in the sample
+  if(!is.null(rowsup) && !is.null(colsup)) {
+      # Block matrix that is symmetric if rowsup and colsup are transposes of each other
+      tab2 <- as.table(cbind(rbind(tab, rowsup),
+                                  rbind(colsup, matrix(NA, nrow(rowsup), ncol(colsup)))))
+      dimnames(tab2) <- list(c(rownames(tab), rownames(rowsup)),
+                             c(colnames(tab), colnames(colsup)))
+      names(dimnames(tab2)) <- names(dimnames(tab))
+      tab <- tab2
+  }
+  else if(!is.null(rowsup)) {
+      tab2 <- as.table(rbind(tab, rowsup))
+      names(dimnames(tab2)) <- names(dimnames(tab))
+      tab <- tab2
+  }
+  else if(!is.null(colsup)) {
+      tab2 <- as.table(cbind(tab, colsup))
+      names(dimnames(tab2)) <- names(dimnames(tab))
+      tab <- tab2
+  }
+
+
   if(se == "jackknife") {
       jack <- jackknife((1:length(tab))[!is.na(tab)], jackknife.assoc,
-                        w=tab[!is.na(tab)], cl=cl,
-                        model=model, assoc1=assoc1, assoc2=assoc2,
-                        weighting=weighting, family=family, weights=weights,
-                        verbose=verbose, trace=trace, ..., base=base)
+                        # Load-balance only when model is likely to take enough some time to fit
+                        w=tab[!is.na(tab)], cl=cl, load.balancing=length(coef(model)) > 200,
+                        model=model, tab=tab, assoc1=assoc1, assoc2=assoc2,
+                        weighting=weighting, rowsup=rowsup, colsup=colsup,
+                        family=family, weights=weights,
+                        verbose=verbose, trace=trace,
+                        start=start, etastart=etastart, ...)
 
       rowsna <- rowSums(is.na(jack$values))
       nacount <- sum(rowsna > 0)
@@ -94,14 +108,16 @@ jackboot <- function(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
       }
 
       boot.results <- numeric(0)
+      svyrep.results <- numeric(0)
   }
-  else {
-      boot.results <- boot::boot(1:sum(tab, na.rm=TRUE), boot.assoc,
-                                 R=nreplicates, cl=cl,
-                                 args=list(model=model, assoc1=assoc1, assoc2=assoc2,
-                                           weighting=weighting, family=family,
-                                           weights=weights, verbose=verbose, trace=trace,
-                                           ..., base=base))
+  else if(se == "bootstrap") {
+      boot.results <- boot::boot(1:sum(tab, na.rm=TRUE), boot.assoc, R=nreplicates,
+                                 parallel="snow", cl=cl, ncpus=ncpus,
+                                 args=list(model=model, tab=tab, assoc1=assoc1, assoc2=assoc2,
+                                           weighting=weighting, rowsup=rowsup, colsup=colsup,
+                                           family=family, weights=weights,
+                                           verbose=verbose, trace=trace,
+                                           start=start, etastart=etastart, ...))
 
       rowsna <- rowSums(is.na(boot.results$t))
       nacount <- sum(rowsna > 0)
@@ -117,6 +133,41 @@ jackboot <- function(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
           cov(boot.results$t[, int], use="na.or.complete")
       }
 
+      jack.results <- numeric(0)
+      svyrep.results <- numeric(0)
+  }
+  else { # Survey replicate weights
+      # Not very efficient, but allows checking for errors before starting the cluster
+      thetahat <- as.numeric(svyrep.assoc(survey::svytable(formula, design, Ntotal=Ntotal, exclude=exclude),
+                                          model=model, assoc1=assoc1, assoc2=assoc2,
+                                          weighting=weighting, rowsup=rowsup, colsup=colsup,
+                                          family=family, weights=weights,
+                                          verbose=verbose, trace=trace,
+                                          start=start, etastart=etastart, ...))
+
+      svyrep.results <- svyrep(formula, design, svyrep.assoc, Ntotal=Ntotal, exclude=exclude,
+                               # Load-balance only when model is likely to take enough some time to fit
+                               cl=cl, load.balancing=length(coef(model)) > 200,
+                               model=model, assoc1=assoc1, assoc2=assoc2,
+                               weighting=weighting, rowsup=rowsup, colsup=colsup,
+                               family=family, weights=weights,
+                               verbose=verbose, trace=trace,
+                               start=start, etastart=etastart, ...)
+
+      rowsna <- rowSums(is.na(svyrep.results))
+      nacount <- sum(rowsna > 0)
+
+      if(!any(rowsna == 0)) {
+          warning("All model replicates failed. Cannot compute standard errors.")
+          return(list())
+      }
+
+      get.covmat <- function(start, len) {
+          int <- seq.int(start, length.out=len)
+          survey::svrVar(svyrep.results, design$scale, design$rscales, mse = design$mse, coef = thetahat)[int, int]
+      }
+
+      boot.results <- numeric(0)
       jack.results <- numeric(0)
   }
 
@@ -232,6 +283,13 @@ jackboot <- function(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
       jack.results1 <- numeric(0)
   }
 
+  if(length(svyrep.results) > 0) {
+      svyrep.results1 <- svyrep.results[,int]
+  }
+  else {
+      svyrep.results1 <- numeric(0)
+  }
+
   if(!is.null(assoc2)) {
       if(length(boot.results) > 0) {
           boot.results2 <- boot.results
@@ -252,24 +310,33 @@ jackboot <- function(se, ncpus, nreplicates, tab, model, assoc1, assoc2,
       else {
           jack.results2 <- numeric(0)
       }
+
+      if(length(svyrep.results) > 0) {
+          svyrep.results2 <- svyrep.results[,-int]
+      }
+      else {
+          svyrep.results2 <- numeric(0)
+      }
   }
   else {
       covmat2 <- numeric(0)
       boot.results2 <- numeric(0)
       jack.results2 <- numeric(0)
+      svyrep.results2 <- numeric(0)
   }
 
   if(is.null(assoc2))
-      list(covmat=covmat1, adj.covmats=adj.covmats1, boot.results=boot.results1, jack.results=jack.results1)
+      list(covmat=covmat1, adj.covmats=adj.covmats1,
+           boot.results=boot.results1, jack.results=jack.results1, svyrep.results=svyrep.results1)
   else
-      list(covmat1=covmat1, adj.covmats1=adj.covmats1, boot.results1=boot.results1, jack.results1=jack.results1,
-           covmat2=covmat2, adj.covmats2=adj.covmats2, boot.results2=boot.results2, jack.results2=jack.results2)
+      list(covmat1=covmat1, adj.covmats1=adj.covmats1,
+           boot.results1=boot.results1, jack.results1=jack.results1, svyrep.results1=svyrep.results1,
+           covmat2=covmat2, adj.covmats2=adj.covmats2,
+           boot.results2=boot.results2, jack.results2=jack.results2, svyrep.results2=svyrep.results2)
 }
 
 # Additional arguments are needed so that update() finds them even when using parLapply
-jackknife.assoc <- function(x, model, ...) {
-  tab <- model$data
-
+jackknife.assoc <- function(x, tab, model, rowsup, colsup, ...) {
   if(sum(tab[-x], na.rm=TRUE) > 0) {
       mat <- tab
       mat[] <- -1
@@ -277,11 +344,23 @@ jackknife.assoc <- function(x, model, ...) {
       tab <- tab + mat
   }
 
-  replicate.assoc(model, tab, ...)
+  if(!is.null(rowsup) || !is.null(colsup))
+      # Remove supplementary rows and columns and recreate them separately
+      tab <- as.table(tab[seq(nrow(model$data)), seq(ncol(model$data))])
+  else
+      tab <- as.table(tab)
+
+  if(!is.null(rowsup))
+      rowsup <- tab[-seq(nrow(model$data)), seq(ncol(model$data))]
+
+  if(!is.null(colsup))
+      colsup <- tab[seq(nrow(model$data)), -seq(ncol(model$data))]
+
+  replicate.assoc(model, tab, rowsup, colsup, ...)
 }
 
 boot.assoc <- function(data, indices, args) {
-  tab <- args$model$data
+  tab <- args$tab
 
   # Create a table from the indices - one index identifies an observation in the original table,
   # following the cumulative sum, from 1 to sum(tab)
@@ -290,20 +369,69 @@ boot.assoc <- function(data, indices, args) {
                                       sum)
 
   # Basic sanity check
-  stopifnot(sum(tab, na.rm=TRUE) == sum(args$model$data, na.rm=TRUE))
+  stopifnot(sum(tab, na.rm=TRUE) == sum(args$model$data, args$rowsup, args$colsup, na.rm=TRUE))
+
+  if(!is.null(args$rowsup) || !is.null(args$colsup))
+      # Remove supplementary rows and columns and recreate them separately
+      args$tab <- as.table(tab[seq(nrow(args$model$data)), seq(ncol(args$model$data))])
+  else
+      args$tab <- as.table(tab)
+
+  if(!is.null(args$rowsup))
+      args$rowsup <- tab[-seq(nrow(args$model$data)), seq(ncol(args$model$data))]
+
+  if(!is.null(args$colsup))
+      args$colsup <- tab[seq(nrow(args$model$data)), -seq(ncol(args$model$data))]
 
   # We need to pass all arguments through "args" to prevent them
   # from being catched by boot(), especially "weights"
-  args$tab <- tab
   do.call(replicate.assoc, args)
 }
 
+# Additional arguments are needed so that update() finds them even when using parLapply
+svyrep.assoc <- function(tab, model, rowsup, colsup, ...) {
+  if(!is.null(rowsup) || !is.null(colsup))
+      # Remove supplementary rows and columns and recreate them separately
+      tab <- as.table(tab[seq(nrow(model$data)), seq(ncol(model$data))])
+  else
+      tab <- as.table(tab)
+
+  if(!is.null(rowsup))
+      rowsup <- tab[-seq(nrow(model$data)), seq(ncol(model$data))]
+
+  if(!is.null(colsup))
+      colsup <- tab[seq(nrow(model$data)), -seq(ncol(model$data))]
+
+  replicate.assoc(model, tab, rowsup, colsup, ...)
+}
+
 # Replicate model with new data, and combine assoc components into a vector
-replicate.assoc <- function(model.orig, tab, assoc1, assoc2, weighting, verbose, trace, ...,
-                            base=NULL) {
+replicate.assoc <- function(model.orig, tab, assoc1, assoc2,
+                            weighting, rowsup, colsup,
+                            verbose, trace, start, etastart, ...) {
+
+  if(!all(dim(tab) == dim(model.orig$data))) {
+      cat("Dimensions of the table for replicate do not match that of the original table: ignoring the results of this replicate. Data was:\n")
+
+      print(tab)
+
+      # This NA value is skipped when computing variance-covariance matrix
+      return(NA)
+  }
+  else if(any(sapply(seq_along(dim(tab)), function(i)
+                     any((apply(tab, i, sum, na.rm=TRUE) == 0) != (apply(model.orig$data, i, sum, na.rm=TRUE) == 0))))) {
+      cat("Some rows, columns or layers of the table for replicate have zero counts that do not appear in the original table: ignoring the results of this replicate. Data was:\n")
+
+      print(tab)
+
+      # This NA value is skipped when computing variance-covariance matrix
+      return(NA)
+  }
+
   # Models can generate an error if they fail repeatedly
   # Remove warnings because we handle them below
   model <- tryCatch(suppressWarnings(update(model.orig, tab=tab,
+                                            rowsup=rowsup, colsup=colsup,
                                             start=parameters(model.orig),
                                             etastart=as.numeric(predict(model.orig)),
                                             verbose=trace, trace=trace, se="none")),
@@ -312,28 +440,31 @@ replicate.assoc <- function(model.orig, tab, assoc1, assoc2, weighting, verbose,
   if(is.null(model) || !model$converged) {
       if(is.null(model)) {
           cat("Model replicate failed.\nData was:\n")
-          model <- model.orig
       }
       else {
           cat("Model replicate did not converge.\nData was:\n")
       }
 
+      print(tab)
   }
 
-  if(!is.null(base) && (is.null(model) || !model$converged)) {
+  if(!is.null(start) && (is.null(model) || !model$converged)) {
+      cat("Trying again with starting values from base model...\n")
 
-      print(tab)
-      cat(sprintf("Trying again with starting values from base model...\n"))
-
-      model <- tryCatch(suppressWarnings(update(model, tab=tab,
-                                                start=parameters(base), etastart=as.numeric(predict(base)),
+      model <- tryCatch(suppressWarnings(update(model.orig, tab=tab,
+                                                rowsup=rowsup, colsup=colsup,
+                                                start=start, etastart=etastart,
                                                 verbose=verbose, trace=verbose, se="none")),
                         error=function(e) NULL)
+      if(is.null(model) || !model$converged)
+          cat("Model failed again. ")
   }
 
-  if((is.null(model) || !model$converged)) {
-      cat(sprintf("Model failed again. Trying one last time with default starting values...\n"))
-      model <- tryCatch(suppressWarnings(update(model, tab=tab, start=NA, etastart=NULL,
+  if(is.null(model) || !model$converged) {
+      cat("Trying one last time with default starting values...\n")
+      model <- tryCatch(suppressWarnings(update(model.orig, tab=tab,
+                                                rowsup=rowsup, colsup=colsup,
+                                               start=NA, etastart=NULL,
                                                 verbose=verbose, trace=verbose, se="none")),
                         error=function(e) NULL)
   }
@@ -345,16 +476,16 @@ replicate.assoc <- function(model.orig, tab, assoc1, assoc2, weighting, verbose,
       return(NA)
   }
 
-  ass1 <- assoc1(model, weighting=weighting)
-  ass1.orig <- assoc1(model.orig, weighting=weighting)
+  ass1 <- assoc1(model, weighting=weighting, rowsup=rowsup, colsup=colsup)
+  ass1.orig <- assoc1(model.orig, weighting=weighting, rowsup=rowsup, colsup=colsup)
 
   ret <- if(inherits(ass1, c("assoc.hmskew", "assoc.hmskewL"))) find.stable.scores.hmskew(ass1, ass1.orig)
          else find.stable.scores(ass1, ass1.orig)
 
   # For double association models like some hmskew and yrcskew variants
   if(!is.null(assoc2)) {
-      ass2 <- assoc2(model, weighting=weighting)
-      ass2.orig <- assoc2(model.orig, weighting=weighting)
+      ass2 <- assoc2(model, weighting=weighting, rowsup=rowsup, colsup=colsup)
+      ass2.orig <- assoc2(model.orig, weighting=weighting, rowsup=rowsup, colsup=colsup)
 
       ret <- c(ret, if(inherits(ass2, c("assoc.hmskew", "assoc.hmskewL"))) find.stable.scores.hmskew(ass2, ass2.orig)
                     else find.stable.scores(ass2, ass2.orig))
@@ -384,7 +515,7 @@ procrustes <- function (X, Y) {
 # Compute distance between adjusted scores for this replicate to that of the original model
 # We choose the permutation and sign of dimensions that minimizes the sum of squares,
 # weighted by the inverse of row frequencies
-find.stable.scores <- function(ass, ass.orig) {
+find.stable.scores <- function(ass, ass.orig, detailed=FALSE) {
   weights <- 1
 
   nd <- ncol(ass$phi)
@@ -393,6 +524,7 @@ find.stable.scores <- function(ass, ass.orig) {
   nl <- nrow(ass$phi)
   nlr <- dim(ass$row)[3]
   nlc <- dim(ass$col)[3]
+  probs <- get.probs(ass)
 
   sc <- adj.orig <- array(NA, dim=c(nr + nc, nd, nl))
   phi <- ass$phi
@@ -427,8 +559,7 @@ find.stable.scores <- function(ass, ass.orig) {
       # phi for rows and column are identical since rotation is the same for both,
       # so take an average in case there are rounding errors
       phi[l,] <- margin.table(sweep(adj[,,l , drop=FALSE]^2, 1,
-                                    c(ass.orig$row.weights,
-                                      ass.orig$col.weights), "*"), 2)/2 * sign(ass$phi[l,])
+                                    c(probs$rp, probs$cp), "*"), 2)/2 * sign(ass$phi[l,])
 
       sc[1:nr,,l] <- sweep(adj[1:nr,,l, drop=FALSE], 2, sqrt(abs(phi[l,])), "/")
       sc[-(1:nr),,l] <- sweep(adj[-(1:nr),,l, drop=FALSE], 2, sqrt(abs(phi[l,])) * sign(ass$phi[l,]), "/")
@@ -450,11 +581,14 @@ find.stable.scores <- function(ass, ass.orig) {
               lambda.sav <- lambda.sav + ass$phi[l, i] * ass$row[, i, 1] %o% ass$col[, i, 1]
       }
 
-      stopifnot(isTRUE(all.equal(lambda, lambda.sav, check.attr=FALSE, tolerance=1e-8)))
-      stopifnot(isTRUE(all.equal(lambda.adj, lambda.sav, check.attr=FALSE, tolerance=1e-8)))
+      stopifnot(isTRUE(all.equal(lambda, lambda.sav, check.attributes=FALSE, tolerance=1e-8)))
+      stopifnot(isTRUE(all.equal(lambda.adj, lambda.sav, check.attributes=FALSE, tolerance=1e-8)))
   }
 
-  c(phi, sc[,,1:nlr], adj)
+  if(detailed)
+      list(phi=phi, row=sc[1:nr,,, drop=FALSE], col=sc[-(1:nr),,, drop=FALSE], rotation=procr$rotation)
+  else
+      c(phi, sc[,,1:nlr], adj)
 }
 
 # Simplified version of permutations() from the gtools 2.7.0 package,
@@ -571,8 +705,8 @@ find.stable.scores.hmskew <- function(ass, ass.orig) {
           }
       }
 
-      stopifnot(isTRUE(all.equal(lambda, lambda.sav, check.attr=FALSE, tolerance=1e-8)))
-      stopifnot(isTRUE(all.equal(lambda.adj, lambda.sav, check.attr=FALSE, tolerance=1e-8)))
+      stopifnot(isTRUE(all.equal(lambda, lambda.sav, check.attributes=FALSE, tolerance=1e-8)))
+      stopifnot(isTRUE(all.equal(lambda.adj, lambda.sav, check.attributes=FALSE, tolerance=1e-8)))
   }
 
   # Repeat row scores to match a general association structure

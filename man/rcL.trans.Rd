@@ -15,7 +15,7 @@ rcL.trans(tab, nd = 1,
           se = c("none", "jackknife", "bootstrap"),
           nreplicates = 100, ncpus = getOption("boot.ncpus"),
           family = poisson, weights = NULL,
-          start = NA, etastart = NULL, tolerance = 1e-8,
+          start = NULL, etastart = NULL, tolerance = 1e-8,
           iterMax = 5000, trace = FALSE, verbose = TRUE, ...)
 }
 \arguments{
@@ -33,15 +33,14 @@ rcL.trans(tab, nd = 1,
   \item{nreplicates}{ the number of bootstrap replicates, if enabled.}
   \item{ncpus}{ the number of processes to use for jackknife or bootstrap parallel computing. Defaults to
     the number of cores (see \code{\link[parallel]{detectCores}}), with a maximum of 5, but falls back to 1
-    (no parallelization) if packages \code{parallel} or \code{snow} are not available.}
+    (no parallelization) if package \code{parallel} is not available.}
   \item{family}{ a specification of the error distribution and link function
      to be used in the model. This can be a character string naming
      a family function; a family function, or the result of a call
      to a family function. See \code{\link{family}} details of family functions.}
   \item{weights}{ an optional vector of weights to be used in the fitting process.}
-  \item{start}{either \code{NA} (the default) to use reasonable starting values, \code{NULL} to use
-     random starting values, or a vector of starting values for the parameters in the model;
-     if a starting value is \code{NA}, the default starting value will be used.}
+  \item{start}{either \code{NA} to use optimal starting values, \code{NULL} to use
+     random starting values, or a vector of starting values for the parameters in the model.}
   \item{etastart}{ starting values for the linear predictor; set to \code{NULL} to use either default
      starting values (if \code{start = NA}), or random starting values (in all other cases).}
   \item{tolerance}{ a positive numeric value specifying the tolerance level for
@@ -58,11 +57,11 @@ rcL.trans(tab, nd = 1,
 \details{
   This function fits log-multiplicative row-column association models with regression-type layer effect which are
   \strong{experimental} models combining the principles behind RC(M)-L (Wong, 2010; see \code{\link{rcL}}) and regression-type
-  models (Goodman & Hout, 1998). More specifically, like RC(M)-L models, row and column scores are allowed to vary accross
+  models (Goodman & Hout, 1998). More specifically, like RC(M)-L models, row and column scores are allowed to vary across
   a layer variable, and the pattern of this variation follows the regression-type inspiration: for each dimension, a set of
   scores describes the first layer, another set describes the total variation of these scores need to describe the
   association observed for the last layer, and one parameter per layer describes the position of the layer between the
-  first and the last layer. Compared with the RC(M)-L model with homogeneous scores accross layers, this models allows
+  first and the last layer. Compared with the RC(M)-L model with homogeneous scores across layers, this models allows
   for a finer description of changes since the ordering and distances of categories on a dimension are allowed to vary,
   and not only the general strength of the association. It is designed to describe transitions from one state to another,
   and is best suited for ordered layer variables like time (though the model is not sensitive to reordering of the layers).
@@ -88,10 +87,9 @@ rcL.trans(tab, nd = 1,
   Actual model fitting is performed using \code{\link{gnm}}, which implements the Newton-Raphson algorithm.
   This function simply ensures correct start values are used, in addition to allowing for identification
   of scores even with several dimensions, computation of their jackknife or bootstrap standard errors, and plotting.
-  The default starting values for main parameters are taken from the model without association parameters
-  (\dQuote{base model}); association parameters start with random starting values. In some complex cases,
-  using \code{start = NULL} to get completely random starting values can be more efficient, but it is also
-  less stable.
+  The default starting values are taken from a model with a stable RC(M) association (\dQuote{base model}). In some
+  complex cases, using \code{start = NULL} to get random starting values can be more efficient, but it is also
+  less stable and can converge to non-optimal solutions.
 }
 \value{
   A \code{rcL} object, with all the components of a \code{\link{gnm}} object, plus an
