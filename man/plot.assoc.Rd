@@ -8,21 +8,22 @@
 \alias{plot.rcL.symm}
 \alias{plot.hmskewL}
 \title{Plotting Scores from Association Models}
-\description{Graphical display of scores from association models in two dimensions}
+\description{Graphical display of category scores from association models.
+}
 \usage{
 \method{plot}{rc}(x, dim = c(1, 2),
      what = c("both", "rows", "columns"), which = NULL,
      mass = TRUE, luminosity = length(x$assoc$diagonal > 0),
      conf.ellipses = NA, replicates = FALSE,
      coords = c("cartesian", "polar"), rev.axes = c(FALSE, FALSE),
-     cex = par("cex"), col = c("blue", "red"), groups = NULL,
+     cex = par("cex"), col = c("blue", "red"), col.ellipses = col, groups = NULL,
      xlim, ylim, asp, xlab, ylab, main, pch, font, ...)
 
 \method{plot}{rc.symm}(x, dim = c(1, 2), which = NULL,
      mass = TRUE, luminosity = length(x$assoc$diagonal > 0),
      conf.ellipses = NA, replicates = FALSE,
      coords = c("cartesian", "polar"), rev.axes = c(FALSE, FALSE),
-     cex = par("cex"), col = "blue", groups = NULL,
+     cex = par("cex"), col = "blue", col.ellipses = col, groups = NULL,
      xlim, ylim, asp, xlab, ylab, main, pch, font, ...)
 
 \method{plot}{hmskew}(x, dim = c(1, 2),
@@ -30,7 +31,7 @@
      mass = TRUE, luminosity = length(x$assoc.hmskew$diagonal > 0),
      arrow = 45, conf.ellipses = NA, replicates = FALSE,
      coords = c("polar", "cartesian"), rev.axes = c(FALSE, FALSE),
-     cex = par("cex"), col = "blue", groups = NULL,
+     cex = par("cex"), col = "blue", col.ellipses = col, groups = NULL,
      xlim, ylim, asp, xlab, ylab, main, pch, font, ...)
 
 \method{plot}{yrcskew}(x, dim = c(1, 2),
@@ -38,7 +39,7 @@
      mass = TRUE, luminosity = length(x$assoc.yrcskew$diagonal > 0),
      arrow = 45, conf.ellipses = NA, replicates = FALSE,
      coords = c("polar", "cartesian"), rev.axes = c(FALSE, FALSE),
-     cex = par("cex"), col = "blue", groups = NULL,
+     cex = par("cex"), col = "blue", col.ellipses = col, groups = NULL,
      xlim, ylim, asp, xlab, ylab, main, pch, font, ...)
 
 \method{plot}{rcL}(x, dim = c(1, 2), layer = "average",
@@ -46,7 +47,7 @@
      mass = TRUE, luminosity = length(x$assoc$diagonal > 0),
      conf.ellipses = NA, replicates = FALSE,
      coords = c("cartesian", "polar"), rev.axes = c(FALSE, FALSE),
-     cex = par("cex"), col = c("blue", "red"), groups = NULL,
+     cex = par("cex"), col = c("blue", "red"), col.ellipses = col, groups = NULL,
      xlim, ylim, asp, xlab, ylab, main, pch, font, ...)
 
 \method{plot}{rcL.symm}(x, dim = c(1, 2), layer = "average",
@@ -54,7 +55,7 @@
      mass = TRUE, luminosity = length(x$assoc$diagonal > 0),
      conf.ellipses = NA, replicates = FALSE,
      coords = c("cartesian", "polar"), rev.axes = c(FALSE, FALSE),
-     cex = par("cex"), col = "blue", groups = NULL,
+     cex = par("cex"), col = "blue", col.ellipses = col, groups = NULL,
      xlim, ylim, asp, xlab, ylab, main, pch, font, ...)
 
 \method{plot}{hmskewL}(x, dim = c(1, 2), layer = "average",
@@ -62,7 +63,7 @@
      mass = TRUE, luminosity = length(x$assoc.hmskew$diagonal > 0),
      arrow=45, conf.ellipses = NA, replicates = FALSE,
      coords = c("polar", "cartesian"), rev.axes = c(FALSE, FALSE),
-     cex = par("cex"), col = "blue", groups = NULL,
+     cex = par("cex"), col = "blue", col.ellipses = col, groups = NULL,
      xlim, ylim, asp, xlab, ylab, main, pch, font, ...)
 
 \method{plot}{assoc}(x, dim = c(1, 2), layer = 1,
@@ -70,7 +71,7 @@
      mass = TRUE, luminosity = length(x$diagonal > 0),
      arrow = NULL, conf.ellipses = NA, replicates = FALSE,
      coords = c("cartesian", "polar"), rev.axes = c(FALSE, FALSE),
-     cex = par("cex"), col = c("blue", "red"), groups = NULL,
+     cex = par("cex"), col = c("blue", "red"), col.ellipses = col, groups = NULL,
      xlim, ylim, asp, xlab, ylab, main, pch, font, ...)
 }
 \arguments{
@@ -96,7 +97,7 @@
                     as a linear function of the diagonal parameter values.}
   \item{arrow}{Numeric value indicating the angle at which the polar coordinates system arrow should be plotted;
                use NULL for no arrow.}
-  \item{conf.ellipses}{an integer between 0 and 1 giving the confidence level to use when drawing error ellipses
+  \item{conf.ellipses}{an integer between 0 and 1 giving the confidence level to use when drawing error ellipses/bars
                        around the points (see \dQuote{Details} below); by default nothing is plotted. Only possible
                        if jackknife or bootstrap was enabled when fitting the model.}
   \item{replicates}{whether to plot points representing the values of the scores obtained for all of the
@@ -112,6 +113,8 @@
   \item{col}{a vector indicating the color of the point symbols, recycled as necessary; as a special case, a
              vector of length 2 can be passed, to indicate the color of row and column points, respectively.
              See also \code{luminosity}.}
+  \item{col.ellipses}{a vector indicating the color of the confidence ellipses/bars, when these are plotted; see
+                     \code{col} the format.}
   \item{groups}{a vector indicating what symbol should be used for each point, recycled as necessary; groups will
                 use \code{pch} values 21, 24, 22, 23 and 25, in this order, cycling if needed. If not an integer,
                 the number of the factor level will be used.}
@@ -131,11 +134,12 @@
   \item{...}{Further arguments passed to \code{\link{plot}}.}
 }
 \details{
-  All the functions documented here represent in a two-dimensional space the scores obtained from a
+  The functions documented here represent in a one- or two-dimensional space the category scores obtained from a
   log-multiplicative association model. They produce \emph{symmetric biplots} in which the coordinates of points
   on both axes are the product of normalized scores and of the square root of the intrinsic association
   coefficient corresponding to each dimension: thus, row and column points share the same \dQuote{unit}
   on all axes (Goodman, 1991, Appendix 2; Wong, 2010, eq. 2.38; Clogg & Shihadeh, 1994, p. 91-92).
+  As a special case, models with only one dimension are presented as a dotchart of the scores.
 
   Various convenience options are provided, with reasonable defaults for each model family. In particular,
   you may find it necessary to adapt the \code{cex}, \code{mass}, \code{luminosity} and \code{groups} arguments
@@ -144,7 +148,7 @@
   origin as the general strength of the association for a category on both axes (a property that is lost for
   higher-dimensional models).
 
-  Confidence ellipses are computed from the scores' variances and covariances, based on the assumption that they are
+  Confidence ellipses/bars are computed from the scores' variances and covariances, based on the assumption that they are
   follow a normal distribution, even if standard errors are computed using jackknife or bootstrap. When bootstrap (not
   jackknife) was used, this normality assumption can be assessed visually using the \code{replicates} argument to check 
   whether points globally follow the shape of the ellipses. See \code{\link{se.assoc}} for details about checking the
@@ -157,6 +161,10 @@
 
   The \code{plot.assoc} function is called internally by all others, and may be leveraged for advanced use cases,
   like plotting custom models that do not correspond stricly to the supported types.
+}
+\value{
+  An invisible list with components \code{row} and \code{col}, two matrices containing the coordinates of the
+  plotted points (\code{NULL} when not plotted).
 }
 
 \references{
@@ -180,7 +188,7 @@
 \seealso{\code{\link{rc}}, \code{\link{rcL}}, \code{\link{rcL.trans}}, \code{\link{hmskew}},
          \code{\link{hmskewL}}, \code{\link{yrcskew}}}
 \examples{
-  ## Wong (2010), Figures 2.2 and 2.1 (p. 50-51)
+  ## Wong (2010), Figures 2.2 and 2.3 (p. 50-51)
   data(gss8590)
 
   \dontrun{

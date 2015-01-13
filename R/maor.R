@@ -1,9 +1,19 @@
+lambda <- function(tab, rp=rep(1/nrow(tab), nrow(tab)), cp=rep(1/ncol(tab), ncol(tab))) {
+  logp <- log(prop.table(tab))
 
-maor <- function(tab, phi=FALSE,
+  lambda <- sweep(logp, 1, rowSums(sweep(logp, 2, cp, "*")), "-")
+  lambda <- sweep(lambda, 2, colSums(sweep(logp, 1, rp, "*")), "-")
+  lambda + sum(logp * rp %o% cp)
+}
+
+maor <- function(tab, phi=FALSE, cell=FALSE,
                  weighting=c("marginal", "uniform", "none"), norm=2,
                  row.weights=NULL, col.weights=NULL) {
   weighting <- match.arg(weighting)
-  stopifnot(is.matrix(tab))
+
+  if(!length(dim(tab)) %in% 2:3) {
+      stop("Only two- and three-way tables are supported.")
+  }
 
   if(!norm %in% 1:2)
      stop("'norm' must be 1 or 2")
@@ -14,17 +24,51 @@ maor <- function(tab, phi=FALSE,
   if(!(is.null(row.weights) || !is.null(col.weights)) && !missing(weighting))
       warning("Argument 'weighting' is ignored when custom row/column weights are specified.")
 
-  if(any(is.na(tab)))
-      stop("NA cells are currently not supported.")
+  if(any(is.na(tab))) {
+      warning("NA cells are currently not supported, returning NA.")
+      return(NA)
+  }
+
+  if(length(dim(tab)) == 3) {
+      rp <- margin.table(tab, 1)
+      cp <- margin.table(tab, 2)
+
+      if(!is.null(row.weights))
+          rp <- row.weights
+
+      if(!is.null(col.weights))
+          cp <- col.weights
+
+      if(any(tab == 0)) {
+          tab <- tab + 0.5
+          warning("Cells with zero counts found: adding 0.5 to each cell of the table.")
+      }
+
+      if(weighting == "marginal")
+          return(apply(tab, 3, maor,
+                       phi=phi, norm=norm,
+                       row.weights=rp, col.weights=cp))
+      else
+          return(apply(tab, 3, maor,
+                       phi=phi, weighting=weighting, norm=norm,
+                       row.weights=row.weights, col.weights=col.weights))
+  }
 
   if(any(tab == 0)) {
+      if(all(tab == 0)) {
+          warning("Table contains only empty cells, returning NA.")
+          return(NA)
+      }
+      else if(sum(tab == 0)/length(tab) > .25) {
+          warning("More than 25% of cells are empty, the value of the index may not be reliable.")
+      }
+
       tab <- tab + 0.5
       warning("Cells with zero counts found: adding 0.5 to each cell of the table.")
   }
 
-  p <- prop.table(tab)
-
   if(weighting == "marginal") {
+      p <- prop.table(tab)
       rp <- margin.table(p, 1)
       cp <- margin.table(p, 2)
   }
@@ -45,16 +89,19 @@ maor <- function(tab, phi=FALSE,
 
   rp1 <- prop.table(rp)
   cp1 <- prop.table(cp)
-  logp <- log(p)
 
-  lambda <- sweep(logp, 1, rowSums(sweep(logp, 2, cp1, "*")), "-")
-  lambda <- sweep(lambda, 2, colSums(sweep(logp, 1, rp1, "*")), "-")
-  lambda <- lambda + sum(logp * rp1 %o% cp1)
+  lambda.norm <- abs(lambda(tab, rp1, cp1))^norm * rp %o% cp
 
-  phi.norm <- sum(abs(lambda)^norm * rp %o% cp)
-
-  if(phi)
-      phi.norm^(1/norm)
-  else
-      exp((4/sum((rp1 * (1 - rp1)) %o% (cp1 * (1 - cp1))) * phi.norm)^(1/norm))
+  if(phi) {
+      if(cell)
+          lambda.norm
+      else
+          sum(lambda.norm)^(1/norm)
+  }
+  else {
+      if(cell)
+          4/sum((rp1 * (1 - rp1)) %o% (cp1 * (1 - cp1))) * lambda.norm
+      else
+          exp((4/sum((rp1 * (1 - rp1)) %o% (cp1 * (1 - cp1))) * sum(lambda.norm))^(1/norm))
+  }
 }

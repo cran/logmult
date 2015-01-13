@@ -12,14 +12,14 @@
      se.type = c("quasi.se", "se"),
      conf.int = 0.95, numeric.auto = TRUE, type = "p",
      xlab = names(dimnames(x$data))[3], ylab = NULL,
-     add = FALSE, ...)
+     add = FALSE, ylim, ...)
 }
 \arguments{
   \item{x}{an object resulting from a call to \code{\link{unidiff}}}
   \item{what}{\dQuote{layer.coefficient} to plot the layer coefficients in the log odds ratio
       scale, with a reference of 1 for the first layer; \dQuote{phi} to plot the intrinsic
       association coefficient (on the log odds ratio scale); \dQuote{maor} to plot the
-      mean absolute odds ratio (see \code{\link{maor}}), i.e. the exponential of \dQuote{phi}.}
+      mean absolute odds ratio (see \code{\link{maor}}).}
   \item{se.type}{whether to use quasi-standard errors or \dQuote{traditional} standard errors
       to compute confidence intervals.}
   \item{conf.int}{the confidence level to retain for confidence bars.}
@@ -32,6 +32,7 @@
       appropriate default is used.}
   \item{add}{whether to create a new plot using \code{\link{plot}}, or draw over the existing
       plot by calling \code{\link{points}} and \code{\link{segments}} directly.}
+  \item{ylim}{the y limits of the plot.}
   \item{...}{Further arguments passed to \code{\link{plot}}.}
 }
 \details{

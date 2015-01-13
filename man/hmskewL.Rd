@@ -66,7 +66,7 @@ hmskewL(tab, nd.symm = NA,
 \details{
   This model follows an equation inspired from that presented by van der Heijden & Mooijaart (1995) for two-way tables
   (see \code{\link{hmskew}}):
-  \deqn{ log F_{ijk} = q_{ijk} + \phi_k (\nu_{ik} \mu_{jk} - \mu_{jk} \nu_{ik}) }
+  \deqn{ log F_{ijk} = q_{ijk} + \phi_k (\nu_{ik} \mu_{jk} - \mu_{ik} \nu_{jk}) }
   where \eqn{F_{ijk}} is the expected frequency for the cell at the intersection of row i, column j and layer k of
   \code{tab}, and \eqn{q_{ij}} a quasi-symmetric specification, with either full interaction parameters, or
   a RC(M) association. See reference for detailed information about the degrees of freedom and the identification
@@ -76,7 +76,7 @@ hmskewL(tab, nd.symm = NA,
   which is equivalent to fitting separate models using \code{\link{hmskew}} on the k two-way tables.
   If it is set to \sQuote{homogeneous.scores}, then \eqn{\mu_{ik} = \mu_i} and \eqn{\nu_{ik} = \nu_i} for all
   layers k: only the \eqn{\phi_k} are allowed to vary across layers. If it is set to \sQuote{none}, then in addition
-  to the previous conditions all \eqn{\phi_{km}} are forced to be equal for all layers k, which amounts to a stability
+  to the previous conditions all \eqn{\phi_{mk}} are forced to be equal for all layers k, which amounts to a stability
   of the association across layers.
 
   When \code{nd.symm} is different from \code{NA}, the symmetric association works exactly like a call to \code{rcL},
