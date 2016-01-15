@@ -16,7 +16,8 @@
 \usage{
 maor(tab, phi = FALSE, cell = FALSE,
      weighting = c("marginal", "uniform", "none"),
-     norm = 2, row.weights = NULL, col.weights = NULL)
+     norm = 2, component=c("total", "symmetric", "antisymmetric"),
+     row.weights = NULL, col.weights = NULL)
 }
 \arguments{
   \item{tab}{a two- or three-way table without zero cells; for three-way tables,
@@ -30,6 +31,8 @@ maor(tab, phi = FALSE, cell = FALSE,
   \item{norm}{the norm to use to compute the mean of \eqn{\lambda_{ij}} parameters,
       1 for the mean of absolute values, or 2 for the square root
       of the sum of squared parameters (as in the original version).}
+  \item{component}{whether to compute the total association, or from symmetric
+      or antisymmetric interaction coefficients only.}
   \item{row.weights}{optional custom weights to be used for rows, e.g. to compute
       the phi coefficient for several tables using their overall marginal
       distribution. If specified, \code{weighting} is ignored.}
@@ -49,10 +52,10 @@ maor(tab, phi = FALSE, cell = FALSE,
   \eqn{\sum_{i = 1}^I P_{i+} \tilde \lambda_{ij} = \sum_{j = 1}^J P_{+j} \tilde \lambda_{ij} = 0}.
 
   The uniform-weighted version of the mean absolute odds ratio (MAOR) is defined as:
-  \deqn{MAOR = \exp \left[ \left( \frac{2 \phi^n}{IJ (I-1) (J-1)} \right)^{1/n} \right]}
+  \deqn{MAOR = \exp \left[ \left( \frac{4}{ IJ (I-1) (J-1)} \right)^{1/n} \phi \right]}
   The (marginal or other) weighted version is defined as:
-  \deqn{MAOR = \exp \left[ \left( \frac{2 \tilde \phi^n}{\sum_{i = 1}^I \sum_{j = 1}^J P_{i+}
-      (1 -  P_{i+}) P_{+j} (1 - P_{+j})} \right) ^{1/n} \right]}
+  \deqn{MAOR = \exp \left[ \left( \frac{4}{\sum_{i = 1}^I \sum_{j = 1}^J P_{i+}
+      (1 -  P_{i+}) P_{+j} (1 - P_{+j})} \right)^{1/n} \tilde \phi \right]}
 
   Per-cell contributions \eqn{c_{ij}} are defined so that \eqn{\tilde \phi = \left( {\sum_{i = 1}^I \sum_{j = 1}^J c_{ij} } \right)^{1/n}} \cr
   and \eqn{MAOR = exp \left[ \left( {\sum_{i = 1}^I \sum_{j = 1}^J c_{ij}} \right)^{1/n} \right]}.

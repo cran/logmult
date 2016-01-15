@@ -107,7 +107,7 @@ rscB3 <- cbind(getContrasts(rmB3, pickCoef(rmB3, "cscores.*1\\]"),
                             ref=rowSums(rsup)/sum(rsup))$qvframe[,1],
                getContrasts(rmB3, pickCoef(rmB3, "cscores.*2\\]"),
                             ref=rowSums(rsup)/sum(rsup))$qvframe[,1])
-cscB3 <- cbind(getContrasts(cmB3, pickCoef(cmB3, "rscores.*1\\]"), 
+cscB3 <- cbind(getContrasts(cmB3, pickCoef(cmB3, "rscores.*1\\]"),
                             ref=colSums(csup)/sum(csup))$qvframe[,1],
                getContrasts(cmB3, pickCoef(cmB3, "rscores.*2\\]"),
                             ref=colSums(csup)/sum(csup))$qvframe[,1])
