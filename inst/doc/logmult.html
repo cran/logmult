@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="author" content="Milan Bouchet-Valat" />
+
+<meta name="date" content="2017-03-20" />
+
+<title>Short Reference for logmult</title>
+
+
+
+
+
+
+<link href="data:text/css;charset=utf-8,body%20%7B%0Abackground%2Dcolor%3A%20%23fff%3B%0Amargin%3A%201em%20auto%3B%0Amax%2Dwidth%3A%20700px%3B%0Aoverflow%3A%20visible%3B%0Apadding%2Dleft%3A%202em%3B%0Apadding%2Dright%3A%202em%3B%0Afont%2Dfamily%3A%20%22Open%20Sans%22%2C%20%22Helvetica%20Neue%22%2C%20Helvetica%2C%20Arial%2C%20sans%2Dserif%3B%0Afont%2Dsize%3A%2014px%3B%0Aline%2Dheight%3A%201%2E35%3B%0A%7D%0A%23header%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0A%23TOC%20%7B%0Aclear%3A%20both%3B%0Amargin%3A%200%200%2010px%2010px%3B%0Apadding%3A%204px%3B%0Awidth%3A%20400px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Aborder%2Dradius%3A%205px%3B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Afont%2Dsize%3A%2013px%3B%0Aline%2Dheight%3A%201%2E3%3B%0A%7D%0A%23TOC%20%2Etoctitle%20%7B%0Afont%2Dweight%3A%20bold%3B%0Afont%2Dsize%3A%2015px%3B%0Amargin%2Dleft%3A%205px%3B%0A%7D%0A%23TOC%20ul%20%7B%0Apadding%2Dleft%3A%2040px%3B%0Amargin%2Dleft%3A%20%2D1%2E5em%3B%0Amargin%2Dtop%3A%205px%3B%0Amargin%2Dbottom%3A%205px%3B%0A%7D%0A%23TOC%20ul%20ul%20%7B%0Amargin%2Dleft%3A%20%2D2em%3B%0A%7D%0A%23TOC%20li%20%7B%0Aline%2Dheight%3A%2016px%3B%0A%7D%0Atable%20%7B%0Amargin%3A%201em%20auto%3B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dcolor%3A%20%23DDDDDD%3B%0Aborder%2Dstyle%3A%20outset%3B%0Aborder%2Dcollapse%3A%20collapse%3B%0A%7D%0Atable%20th%20%7B%0Aborder%2Dwidth%3A%202px%3B%0Apadding%3A%205px%3B%0Aborder%2Dstyle%3A%20inset%3B%0A%7D%0Atable%20td%20%7B%0Aborder%2Dwidth%3A%201px%3B%0Aborder%2Dstyle%3A%20inset%3B%0Aline%2Dheight%3A%2018px%3B%0Apadding%3A%205px%205px%3B%0A%7D%0Atable%2C%20table%20th%2C%20table%20td%20%7B%0Aborder%2Dleft%2Dstyle%3A%20none%3B%0Aborder%2Dright%2Dstyle%3A%20none%3B%0A%7D%0Atable%20thead%2C%20table%20tr%2Eeven%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Ap%20%7B%0Amargin%3A%200%2E5em%200%3B%0A%7D%0Ablockquote%20%7B%0Abackground%2Dcolor%3A%20%23f6f6f6%3B%0Apadding%3A%200%2E25em%200%2E75em%3B%0A%7D%0Ahr%20%7B%0Aborder%2Dstyle%3A%20solid%3B%0Aborder%3A%20none%3B%0Aborder%2Dtop%3A%201px%20solid%20%23777%3B%0Amargin%3A%2028px%200%3B%0A%7D%0Adl%20%7B%0Amargin%2Dleft%3A%200%3B%0A%7D%0Adl%20dd%20%7B%0Amargin%2Dbottom%3A%2013px%3B%0Amargin%2Dleft%3A%2013px%3B%0A%7D%0Adl%20dt%20%7B%0Afont%2Dweight%3A%20bold%3B%0A%7D%0Aul%20%7B%0Amargin%2Dtop%3A%200%3B%0A%7D%0Aul%20li%20%7B%0Alist%2Dstyle%3A%20circle%20outside%3B%0A%7D%0Aul%20ul%20%7B%0Amargin%2Dbottom%3A%200%3B%0A%7D%0Apre%2C%20code%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0Aborder%2Dradius%3A%203px%3B%0Acolor%3A%20%23333%3B%0Awhite%2Dspace%3A%20pre%2Dwrap%3B%20%0A%7D%0Apre%20%7B%0Aborder%2Dradius%3A%203px%3B%0Amargin%3A%205px%200px%2010px%200px%3B%0Apadding%3A%2010px%3B%0A%7D%0Apre%3Anot%28%5Bclass%5D%29%20%7B%0Abackground%2Dcolor%3A%20%23f7f7f7%3B%0A%7D%0Acode%20%7B%0Afont%2Dfamily%3A%20Consolas%2C%20Monaco%2C%20%27Courier%20New%27%2C%20monospace%3B%0Afont%2Dsize%3A%2085%25%3B%0A%7D%0Ap%20%3E%20code%2C%20li%20%3E%20code%20%7B%0Apadding%3A%202px%200px%3B%0A%7D%0Adiv%2Efigure%20%7B%0Atext%2Dalign%3A%20center%3B%0A%7D%0Aimg%20%7B%0Abackground%2Dcolor%3A%20%23FFFFFF%3B%0Apadding%3A%202px%3B%0Aborder%3A%201px%20solid%20%23DDDDDD%3B%0Aborder%2Dradius%3A%203px%3B%0Aborder%3A%201px%20solid%20%23CCCCCC%3B%0Amargin%3A%200%205px%3B%0A%7D%0Ah1%20%7B%0Amargin%2Dtop%3A%200%3B%0Afont%2Dsize%3A%2035px%3B%0Aline%2Dheight%3A%2040px%3B%0A%7D%0Ah2%20%7B%0Aborder%2Dbottom%3A%204px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Apadding%2Dbottom%3A%202px%3B%0Afont%2Dsize%3A%20145%25%3B%0A%7D%0Ah3%20%7B%0Aborder%2Dbottom%3A%202px%20solid%20%23f7f7f7%3B%0Apadding%2Dtop%3A%2010px%3B%0Afont%2Dsize%3A%20120%25%3B%0A%7D%0Ah4%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23f7f7f7%3B%0Amargin%2Dleft%3A%208px%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Ah5%2C%20h6%20%7B%0Aborder%2Dbottom%3A%201px%20solid%20%23ccc%3B%0Afont%2Dsize%3A%20105%25%3B%0A%7D%0Aa%20%7B%0Acolor%3A%20%230033dd%3B%0Atext%2Ddecoration%3A%20none%3B%0A%7D%0Aa%3Ahover%20%7B%0Acolor%3A%20%236666ff%3B%20%7D%0Aa%3Avisited%20%7B%0Acolor%3A%20%23800080%3B%20%7D%0Aa%3Avisited%3Ahover%20%7B%0Acolor%3A%20%23BB00BB%3B%20%7D%0Aa%5Bhref%5E%3D%22http%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0Aa%5Bhref%5E%3D%22https%3A%22%5D%20%7B%0Atext%2Ddecoration%3A%20underline%3B%20%7D%0A%0Acode%20%3E%20span%2Ekw%20%7B%20color%3A%20%23555%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Edt%20%7B%20color%3A%20%23902000%3B%20%7D%20%0Acode%20%3E%20span%2Edv%20%7B%20color%3A%20%2340a070%3B%20%7D%20%0Acode%20%3E%20span%2Ebn%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Efl%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Ech%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Est%20%7B%20color%3A%20%23d14%3B%20%7D%20%0Acode%20%3E%20span%2Eco%20%7B%20color%3A%20%23888888%3B%20font%2Dstyle%3A%20italic%3B%20%7D%20%0Acode%20%3E%20span%2Eot%20%7B%20color%3A%20%23007020%3B%20%7D%20%0Acode%20%3E%20span%2Eal%20%7B%20color%3A%20%23ff0000%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%0Acode%20%3E%20span%2Efu%20%7B%20color%3A%20%23900%3B%20font%2Dweight%3A%20bold%3B%20%7D%20%20code%20%3E%20span%2Eer%20%7B%20color%3A%20%23a61717%3B%20background%2Dcolor%3A%20%23e3d2d2%3B%20%7D%20%0A" rel="stylesheet" type="text/css" />
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Short Reference for logmult</h1>
+<h4 class="author"><em>Milan Bouchet-Valat</em></h4>
+<h4 class="date"><em>2017-03-20</em></h4>
+
+
+
+<div id="supported-models-and-options" class="section level1">
+<h1>Supported Models and Options</h1>
+<p>The logmult package currently supports these model families via separate functions:</p>
+<ul>
+<li>UNIDIFF (a.k.a. log-multiplicative layer effect model): <code>unidiff</code> function.</li>
+<li>RC(M) (a.k.a. Goodman Type II) row-column association models: <code>rc</code> function.</li>
+<li>RC(M)-L row-column association models with layer effect: <code>rcL</code> function.</li>
+<li>Skew-symmetric row-column association model (van der Heijden &amp; Mooijaart): <code>hmskew</code> function.</li>
+<li>Skew-symmetric row-column association model with layer effect (extension of van der Heijden &amp; Mooijaart): <code>hmskewL</code> function.</li>
+<li>Skew-symmetric row-column association model (Yamaguchi RC-SK): <code>yrcskew</code> function.</li>
+</ul>
+<p>Please refer to the inline documentation for each function (e.g. <code>?unidiff</code>) for more details and classic examples.</p>
+<p>These functions take as their first argument a table, typically obtained via the <code>table</code> or <code>xtabs</code> function. Arrays of counts without row, column and layer names will have letters attributed automatically; use <code>rownames</code>, <code>colnames</code> and/or <code>dimnames</code> to change these names.</p>
+<p>Main options common to several models include:</p>
+<ul>
+<li>No weighting, uniform weighting or marginal weighting when normalizing scores: <code>weighting</code> argument.</li>
+<li>Symmetric (a.k.a. homogeneous) scores for rows and columns: <code>symmetric</code> argument.</li>
+<li>Homogeneous scores and association coefficients for all layers, homogeneous scores only (a.k.a. “simple homogeneous”), or heterogeneous scores and association coefficients: <code>layer.effect</code>, <code>layer.effect.symm</code> and <code>layer.effect.skew</code> arguments.</li>
+<li>Number of dimensions: <code>nd</code>, <code>nd.symm</code> and <code>nd.skew</code> arguments.</li>
+<li>Diagonal-specific parameters (“quasi-” models), either stable or varying over layers: <code>diagonal</code> argument.</li>
+<li>Jackknife and bootstrap standard errors: <code>se</code> and <code>nreplicates</code> argument.</li>
+<li>Supplementary rows and columns: <code>rowsup</code> and <code>colsup</code> arguments.</li>
+<li>Fully random or precomputed (semi-random) starting values: <code>start</code> argument.</li>
+<li>Fitting control via arguments passed to <code>gnm</code>: tolerance criterion (<code>tolerance</code>), maximum number of iterations (<code>iterMax</code>), progress output (<code>trace</code> and <code>verbose</code>), faster fitting by not estimating uninteresting parameters (<code>elim</code>).</li>
+</ul>
+<p>Custom models which cannot be obtained via the standard options can be fitted manually by calling <code>gnm</code> directly. Association coefficients can then be extracted by calling one of the <code>assoc.*</code> functions on the model: <code>assoc.rc</code>, <code>assoc.rcL</code>, <code>assoc.rcL.symm</code>, <code>assoc.hmskew</code>, <code>assoc.hmskewL</code>, <code>assoc.rc.symm</code> or <code>assoc.yrcskew</code>. Since these functions are not exported, you need to fully qualify them to call them, e.g. <code>logmult:::assoc.rc(model)</code>. The resulting objects (of class <code>assoc</code>) can be passed to <code>plot</code> and support the same options as models.</p>
+<p>Models of the “quasi-” type, i.e. excluding some cells of a table, can be fitted by setting the corresponding cells of the input table to <code>NA</code>. Reported degrees of freedom will be correct (contrary to what often happens when setting zero weights for these cells).</p>
+</div>
+<div id="plotting" class="section level1">
+<h1>Plotting</h1>
+<p>The package supports rich plotting features for each model family.</p>
+<p>For the UNIDIFF model the layer coefficient can be plotted by simply calling <code>plot</code> on the fitted model. See <code>?plot.unidiff</code> for details and examples.</p>
+<p>For association models, one- and multi-dimensional scores plots can be drawn, again by calling <code>plot</code> on the fitted model. For models with a layer effect, a given layer can be chosen via the <code>layer</code> argument, or an average of association coefficients can be used (for models with homogeneous scores only). Several arguments allow tweaking the display, including:</p>
+<ul>
+<li>Which dimensions to plot: <code>dim</code> argument.</li>
+<li>Whether to plot the symmetric or skew-symmetric part of the association (when applicable): <code>what</code> argument.</li>
+<li>Whether to show rows, columns or both: <code>what</code> argument.</li>
+<li>Which specific rows/columns to represent: <code>which</code> argument.</li>
+<li>Whether to draw confidence intervals/ellipses (when jackknife/bootstrap were enabled for fitting): <code>conf.int</code> and <code>replicates</code> argument.</li>
+<li>Whether the size of symbols should vary according to their frequencies: <code>mass</code> argument.</li>
+<li>Whether the luminosity of symbols should vary according to the strength of the association: <code>luminosity</code> argument.</li>
+<li>Whether to reverse the axes: <code>rev.axes</code> argument.</li>
+<li>Standard arguments allow choosing the title (<code>main</code>), axis labels (<code>xlab</code>, <code>ylab</code>), axis limits (<code>xlim</code>, <code>ylim</code>), symbol size (<code>cex</code>) and type (<code>pch</code>), draw onto an existing plot (<code>add</code>).</li>
+</ul>
+<p>See <code>?plot.assoc</code> for the full reference.</p>
+</div>
+<div id="notes-about-lem" class="section level1">
+<h1>Notes About LEM</h1>
+<p>Results provided by logmult should generally be consistent with LEM, and have been checked against it when possible. Some models are known not to work correctly in LEM, though.</p>
+<ul>
+<li>UNIDIFF layer coefficients are consistent with those computed by LEM, including when diagonal cells are excluded (using the <code>wei</code> commands or diagonal-specific parameters). Row-column intraction coefficients obtained with <code>weighting=&quot;none&quot;</code> are consistent with LEM (coefficients reported by LEM exclude the last row and column).</li>
+<li>RC(1) scores and intrinsic association coefficients are consistent with logmult; some sign changes can happen but do not affect results. This does not apply to not RC(M) models (see below).</li>
+<li>Multidimensional RC(M) models can be fitted in LEM, but their association parameters are not identified: all results of RC(1) and RC(1)-L models are consistent with logmult (including scores); only fit statistics of RC(M) and RC(M)-L are.</li>
+<li>RC(M)-L model scores and intrinsic association coefficients are consistent with logmult; some sign changes can happen but do not affect results.</li>
+</ul>
+<p>Even when models are supposed to be consistent between LEM and logmult, it can happen that different results are obtained. There are several possible reasons to that:</p>
+<ul>
+<li>Several local optima may exist. Since logmult uses random starting values, running the model many times will allow checking whether another solution with a lower deviance exists. This can be achieved with LEM by adding <code>ran</code> at the end of the <code>mod</code> line.</li>
+<li>Convergence may appear to have been reached while this is not the case. This is a particularly common risk with LEM since the default tolerance criterion is not very strict. Add a <code>cri 0.00000001</code> line (or use an even lower value if time permits) to use a stricter criterion. Even then, check that changing the criterion does not affect too much the estimated coefficients: if that is the case, they may not be reliable.</li>
+</ul>
+<p>When unsure whether parameters of a model are identified in LEM, add <code>ran</code> at the end of the <code>mod</code> line to use random starting values. Unidentified coefficients will then be different at every run; only identified coefficients will remain the same. logmult only reports identifiable parameters. On the other hand, gnm returns unidentified parameters from <code>coef</code>, but these have <code>NA</code> standard errors when calling <code>summary(asGnm(model))</code>; since random starting values are used by default, unidentified parameters will also be different when re-fitting a model.</p>
+<p>When using null weights, LEM reports incorrect degrees of freedom, as zero-weight cells are still considered as free. With logmult, instead of using null weights, set corresponding cells to <code>NA</code> in the input table; this will report the same results as LEM, but with correct degrees of freedom.</p>
+</div>
+<div id="logmultgnm-limitations-compared-with-lem" class="section level1">
+<h1>logmult/gnm Limitations Compared With LEM</h1>
+<p>gnm and logmult do not always work well with effects coding (<code>&quot;contr.sum&quot;</code>). Models may fail to converge and parameters extraction will not always work. Using dummy coding (<code>&quot;contr.treatment&quot;</code>) is recommended, and gives the same log-multiplicative parameters as when using effects coding (which only affects linear parameters).</p>
+</div>
+
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

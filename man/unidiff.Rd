@@ -13,7 +13,7 @@ unidiff(tab, diagonal = c("included", "excluded", "only"),
         constrain = "auto",
         weighting = c("marginal", "uniform", "none"), norm = 2,
         family = poisson,
-        tolerance = 1e-8, iterMax = 5000,
+        tolerance = 1e-8, iterMax = 5000, eliminate=NULL,
         trace = FALSE, verbose = TRUE,
         checkEstimability = TRUE, ...)
 }
@@ -42,6 +42,9 @@ unidiff(tab, diagonal = c("included", "excluded", "only"),
      instability of estimated scores!}
   \item{iterMax}{ a positive integer specifying the maximum number of main iterations to perform;
      consider raising this value if your model does not converge.}
+  \item{eliminate}{ either \code{NULL} (the default) to estimate all parameters, \code{NA}
+     to skip the estimation of some parameters for increased efficiency, or the name of a
+     factor to be passed as \code{\link{gnm}}'s corresponding argument.}
   \item{trace}{ a logical value indicating whether the deviance
      should be printed after each iteration.}
   \item{verbose}{ a logical value indicating whether progress indicators should be printed,
@@ -76,9 +79,9 @@ unidiff(tab, diagonal = c("included", "excluded", "only"),
   \item{layer}{a \code{\link{qvcalc}} object holding the (log) layer coefficients, their standard
       errors and quasi-standard errors.}
   \item{phi}{the value of the intrinsic association coefficient (see \code{\link{maor}}) for
-      the first layer.}
-  \item{phi}{the value of the Mean absolute odds ratio (see \code{\link{maor}}) for
-      the first layer.}
+      each layer.}
+  \item{maor}{the value of the Mean absolute odds ratio (see \code{\link{maor}}) for
+      each layer.}
   \item{interaction}{a data frame object holding the two-way interaction coefficients, and their
       standard errors.}
   \item{diagonal}{the value of the \code{diagonal} argument above.}
@@ -126,6 +129,10 @@ unidiff(tab, diagonal = c("included", "excluded", "only"),
       stopifnot(all.equal(model$df.residual, 116))
       stopifnot(all.equal(round(model$unidiff$layer$qvframe$estimate, 3),
                           c(0, -0.225, -0.743, -1.039, -2.250)))
+      stopifnot(all.equal(round(model$unidiff$phi, 3),
+                          c(0.601, 0.48, 0.286, 0.213, 0.063), check.attributes=FALSE))
+      stopifnot(all.equal(round(model$unidiff$maor, 3),
+                          c(4.144, 3.111, 1.966, 1.654, 1.162), check.attributes=FALSE))
       # Interaction coefficients obtained using LEM
       stopifnot(all.equal(round(model$unidiff$interaction[,1], 4),
                           c(0.7084, -0.5925, -0.1608,  0.9028, -0.5433, -0.3146,  1.1473,
