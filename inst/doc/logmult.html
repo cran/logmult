@@ -12,7 +12,7 @@
 
 <meta name="author" content="Milan Bouchet-Valat" />
 
-<meta name="date" content="2017-03-20" />
+<meta name="date" content="2017-11-15" />
 
 <title>Short Reference for logmult</title>
 
@@ -32,7 +32,7 @@
 
 <h1 class="title toc-ignore">Short Reference for logmult</h1>
 <h4 class="author"><em>Milan Bouchet-Valat</em></h4>
-<h4 class="date"><em>2017-03-20</em></h4>
+<h4 class="date"><em>2017-11-15</em></h4>
 
 
 
@@ -87,8 +87,8 @@
 <p>Results provided by logmult should generally be consistent with LEM, and have been checked against it when possible. Some models are known not to work correctly in LEM, though.</p>
 <ul>
 <li>UNIDIFF layer coefficients are consistent with those computed by LEM, including when diagonal cells are excluded (using the <code>wei</code> commands or diagonal-specific parameters). Row-column intraction coefficients obtained with <code>weighting=&quot;none&quot;</code> are consistent with LEM (coefficients reported by LEM exclude the last row and column).</li>
-<li>RC(1) scores and intrinsic association coefficients are consistent with logmult; some sign changes can happen but do not affect results. This does not apply to not RC(M) models (see below).</li>
-<li>Multidimensional RC(M) models can be fitted in LEM, but their association parameters are not identified: all results of RC(1) and RC(1)-L models are consistent with logmult (including scores); only fit statistics of RC(M) and RC(M)-L are.</li>
+<li>RC(1) scores and intrinsic association coefficients are consistent with logmult; some sign changes can happen but do not affect results.</li>
+<li>Multidimensional RC(M) models can be fitted in LEM, but their association parameters are not identified; however fit statistics agree with logmult.</li>
 <li>RC(M)-L model scores and intrinsic association coefficients are consistent with logmult; some sign changes can happen but do not affect results.</li>
 </ul>
 <p>Even when models are supposed to be consistent between LEM and logmult, it can happen that different results are obtained. There are several possible reasons to that:</p>
