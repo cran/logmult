@@ -1,6 +1,6 @@
-05727d848a6c09e99def2b9c1bf1e973 *DESCRIPTION
+3155a16a166eebf0110ecb5ca9960642 *DESCRIPTION
 8b87e0655328ec32dc40941fe8a46ff7 *NAMESPACE
-c1db18a1bf03ba67ffff388d5bee8cbb *NEWS
+f91eb2f3f478bab165ac07517caeda0b *NEWS
 6b011d15ca61163bebab8f35103a67ba *R/anoas.R
 198ea1e7c5d734943753ec35d85b34d3 *R/hmskew.R
 5be82fb1d5164149c0ad96aacd748109 *R/hmskewL.R
@@ -20,11 +20,11 @@ b4317d0bcdf1631e34bdb1d60f0d3f15 *R/residSVD.R
 8cf77b87fa35e5d101e8f10c2c7f0c7a *R/summary.assoc.R
 1b996f06c8a6d21d61259380925b9907 *R/supplementary.R
 a2cf5cd8236a807a2819ade0a36b4ebd *R/survey.R
-917d29dd01789e89adf54afd4348b228 *R/svygnm.R
+08086549fbf5f570e2123453dac2f1fa *R/svygnm.R
 b12a44aabb6d8c7fc17a68a06f7657a1 *R/tools.R
 fb8a0d18a6e64f591ec4e170cefb599a *R/unidiff.R
 5f4bd2e2a28585866520107e5f6633d4 *R/yrcskew.R
-29d9670ea87a2005a0976592304b10de *build/vignette.rds
+fe2785d543ab4f3621d30db4d9dd3cb8 *build/vignette.rds
 ddb76d0b1df0b6b8cad0d9e1f125e380 *data/color.RData
 d8a646cf41bb1f7b94f37b70e544860c *data/criminal.RData
 f60ce876993a697d003520d36422c1e8 *data/gss7590.RData
@@ -33,7 +33,7 @@ d34bf6ce0d0223e63440a2ba456d12e0 *data/gss88.RData
 37600c4083d0cb271af01c7319169a52 *data/hg16.RData
 17eafd6a751d0de5ae347241c26d11bf *data/ocg1973.RData
 a7ab404970857b2db53d4e19ec818459 *inst/doc/logmult.Rmd
-3a26c1e9121796e30814e20170b4bf5e *inst/doc/logmult.html
+45e408f077c40b064f1c2b0d997ea03e *inst/doc/logmult.html
 de2367fd7caafbe95320bcf1a06025ad *man/HMSkew-nonlin.Rd
 42640e096b65c9db9ab0741f5118be7c *man/RCTrans-nonlin.Rd
 cdb1a091d3bac7ba3230acec7fef9ea4 *man/YRCSkew-nonlin.Rd
@@ -61,7 +61,7 @@ c3492af9e9ddcf4a0a1331116355644c *man/se.Rd
 e56b6fc5abc6bfdbc338926e2c62932d *man/summary.assoc.Rd
 c9fbd82a49e28f0d445223a030d2e699 *man/summary.unidiff.Rd
 9324835c8852ce271876d97628921fb0 *man/svyassocmod.Rd
-7e4fb271d1610c2504078c2cb4bdaa93 *man/svygnm.Rd
+a40381f497a8e1f3d2d4402db52d2b9e *man/svygnm.Rd
 c163d95bb4549a2ccda612c21064c8d4 *man/unidiff.Rd
 1a0440eba0ef73971c7a4d01b561b3a6 *man/yrcskew.Rd
 e0cb7e2b1a2352e68a2f992e1aabd6d3 *tests/Becker-Clogg1989.R
@@ -69,12 +69,12 @@ e0cb7e2b1a2352e68a2f992e1aabd6d3 *tests/Becker-Clogg1989.R
 e0437b916a20d0c4699592e3ad75393b *tests/Goodman1979.R
 49c72a5ec642c52802923f1c236f0ee6 *tests/Goodman1991.R
 698e3483b8db6a8c767bb4f30fa6bd20 *tests/Wong2010-2.7.R
-dfa0464b0d9c54f649b744fffcd6316d *tests/Wong2010-4.7.R
+0c5c79730c4bc7d44842a6751f31f22d *tests/Wong2010-4.7.R
 390f918685d9f303a4cb2f2eec64d6cb *tests/Yamaguchi1990.R
 b1cf8f6be0d60928fe5bdb5ea15e04a1 *tests/hmskewL.R
 8d698d1d33aa3e5b2353b59a5c9a8c37 *tests/iac.R
 bd10e6e0e3dbc10b682462e7541f39db *tests/maor.R
 d799d443aab81fa9f306b1621f9b733b *tests/ras.R
-88618a62227c70990beceaea0c649984 *tests/supplementary.R
+3f809c26a39b237749199922319566ea *tests/supplementary.R
 ed4f4a2fcc2f3e2a3407a5715c5b8f1b *tests/vanderHeijden-Mooijaart1995.R
 a7ab404970857b2db53d4e19ec818459 *vignettes/logmult.Rmd
