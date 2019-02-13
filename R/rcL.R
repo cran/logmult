@@ -53,10 +53,12 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
 
   base <- NULL
 
-  nastart <- length(start) == 1 && is.na(start)
+  # gnm can give incorrect results with contrasts other than treatment
+  contr <- getOption("contrasts")
+  on.exit(options(contrasts=contr))
+  options(contrasts=c("contr.treatment", "contr.treatment"))
 
-
-  if(nastart) {
+  if(identical(start, NA)) {
       cat("Running base model to find starting values...\n")
 
       args <- list(formula=as.formula(paste(f1, diagstr)), data=tab,
@@ -124,6 +126,11 @@ rcL <- function(tab, nd=1, layer.effect=c("homogeneous.scores", "heterogeneous",
                tolerance=tolerance, iterMax=iterMax, verbose=verbose, trace=trace)
   if(!is.null(eliminate))
       args$eliminate <- eliminate
+
+  # gnm can give incorrect results with contrasts other than treatment
+  contr <- getOption("contrasts")
+  on.exit(options(contrasts=contr))
+  options(contrasts=c("contr.treatment", "contr.treatment"))
 
   model <- do.call("gnm", c(args, list(...)))
 
@@ -316,9 +323,9 @@ assoc.rcL <- function(model, weighting=c("marginal", "uniform", "none"), ...) {
   }
 
   if(length(pickCoef(model, "Diag\\(")) > nr)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], nl, nr)
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), nl, nr)
   else if(length(pickCoef(model, "Diag\\(")) > 0)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], 1, nr)
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), 1, nr)
   else
       dg <- numeric(0)
 
@@ -513,9 +520,9 @@ assoc.rcL.symm <- function(model, weighting=c("marginal", "uniform", "none"), ..
   }
 
   if(length(pickCoef(model, "Diag\\(")) > nr)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], nl, nr)
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), nl, nr)
   else if(length(pickCoef(model, "Diag\\(")) > 0)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], 1, nr)
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), 1, nr)
   else
       dg <- numeric(0)
 

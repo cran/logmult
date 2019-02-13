@@ -62,8 +62,12 @@ yrcskew <- function(tab, nd.symm=NA, nd.skew=1, diagonal=FALSE,
       basef <- sprintf("Freq ~ %s + %s %s+ instances(MultHomog(%s, %s), %i)",
                        vars[1], vars[2], diagstr, vars[1], vars[2], nd.symm)
 
+  # gnm can give incorrect results with contrasts other than treatment
+  contr <- getOption("contrasts")
+  on.exit(options(contrasts=contr))
+  options(contrasts=c("contr.treatment", "contr.treatment"))
 
-  if(!is.null(start) && is.na(start)) {
+  if(!is.null(start) && identical(start, NA)) {
       # Without good starting values, estimation can fail when running start-up iterations
       # with large tables
       cat("Running base model to find starting values...\n")
@@ -211,9 +215,9 @@ assoc.yrcskew <- function(model, weighting=c("marginal", "uniform", "none"), ...
       stop("Skew coefficients not found. Are you sure this is a Yamaguchi RC_SK model?")
 
   if(length(pickCoef(model, "Diag\\(")) > nrow(tab))
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], ncol=nrow(tab))
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), ncol=nrow(tab))
   else if(length(pickCoef(model, "Diag\\(")) > 0)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], 1, nrow(tab))
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), 1, nrow(tab))
   else
       dg <- numeric(0)
 
@@ -343,9 +347,9 @@ assoc.yrcskew <- function(model, weighting=c("marginal", "uniform", "none"), ...
 #       stop("skew coefficients not found. Are you sure this is a row-column association model with symmetric row and column scores plus skewness?")
 # 
 #   if(length(pickCoef(model, "Diag\\(")) > nrow(tab))
-#       dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], ncol=nrow(tab))
+#       dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), ncol=nrow(tab))
 #   else if(length(pickCoef(model, "Diag\\(")) > 0)
-#       dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], 1, nrow(tab))
+#       dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), 1, nrow(tab))
 #   else
 #       dg <- numeric(0)
 # 

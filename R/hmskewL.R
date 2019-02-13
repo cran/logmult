@@ -103,14 +103,17 @@ hmskewL <- function(tab, nd.symm=NA, layer.effect.skew=c("homogeneous.scores", "
 
   base <- NULL
 
-  nastart <- length(start) == 1 && is.na(start)
-
   if(layer.effect.symm %in% c("heterogeneous", "regression.type"))
       eliminate <- eval(parse(text=sprintf("quote(Symm(%s, %s))", vars[1], vars[2])))
   else
       eliminate <- eval(parse(text=sprintf("quote(%s:%s)", vars[1], vars[3])))
 
-  if(nastart) {
+  # gnm can give incorrect results with contrasts other than treatment
+  contr <- getOption("contrasts")
+  on.exit(options(contrasts=contr))
+  options(contrasts=c("contr.treatment", "contr.treatment"))
+
+  if(identical(start, NA)) {
       cat("Running base model to find starting values...\n")
 
       args <- list(formula=as.formula(paste(f1, diagstr)), data=tab,
@@ -314,9 +317,9 @@ assoc.hmskewL <- function(model, weighting=c("marginal", "uniform", "none"), ...
 
 
   if(length(pickCoef(model, "Diag\\(")) > nr)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], nl, nr)
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), nl, nr)
   else if(length(pickCoef(model, "Diag\\(")) > 0)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], 1, nr)
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), 1, nr)
   else
       dg <- numeric(0)
 

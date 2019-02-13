@@ -71,7 +71,12 @@ hmskew <- function(tab, nd.symm=NA, diagonal=FALSE,
   else
       basef2 <- basef
 
-  if(!is.null(start) && is.na(start)) {
+  # gnm can give incorrect results with contrasts other than treatment
+  contr <- getOption("contrasts")
+  on.exit(options(contrasts=contr))
+  options(contrasts=c("contr.treatment", "contr.treatment"))
+
+  if(!is.null(start) && identical(start, NA)) {
       cat("Running base model to find starting values...\n")
 
       # Setting tolerance to a value below 1e-6 can lead to convergence issues with large tables
@@ -199,9 +204,9 @@ assoc.hmskew <- function(model, weighting=c("marginal", "uniform", "none"),
   sc <- cbind(mu1, mu2)
 
   if(length(pickCoef(model, "Diag\\(")) > nrow(tab))
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], dim(tab)[3], nrow(tab))
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), dim(tab)[3], nrow(tab))
   else if(length(pickCoef(model, "Diag\\(")) > 0)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], 1, nrow(tab))
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), 1, nrow(tab))
   else
       dg <- numeric(0)
 

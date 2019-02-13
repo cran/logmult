@@ -82,7 +82,12 @@ rcL.trans <- function(tab, nd=1, symmetric=FALSE, diagonal=c("none", "heterogene
 
   eliminate <- eval(parse(text=sprintf("quote(%s:%s)", vars[1], vars[3])))
 
-  if(!is.null(start) && is.na(start)) {
+  # gnm can give incorrect results with contrasts other than treatment
+  contr <- getOption("contrasts")
+  on.exit(options(contrasts=contr))
+  options(contrasts=c("contr.treatment", "contr.treatment"))
+
+  if(!is.null(start) && identical(start, NA)) {
       cat("Running base model to find starting values...\n")
 
       if(symmetric) {
@@ -276,7 +281,7 @@ assoc.rcL.trans <- function(model, weighting=c("marginal", "uniform", "none"), .
 
   if(length(pickCoef(model, "Diag\\(") > 0)) {
       dg <- matrix(NA, nl, nr)
-      dg[] <- parameters(model)[pickCoef(model, "Diag\\(")]
+      dg[] <- pickCoef(model, "Diag\\(", value=TRUE)
   }
   else {
       dg <- numeric(0)
@@ -439,7 +444,7 @@ assoc.rcL.trans.symm <- function(model, weighting=c("marginal", "uniform", "none
 
   if(length(pickCoef(model, "Diag\\(") > 0)) {
       dg <- matrix(NA, nl, nr)
-      dg[] <- parameters(model)[pickCoef(model, "Diag\\(")]
+      dg[] <- pickCoef(model, "Diag\\(", value=TRUE)
   }
   else {
       dg <- numeric(0)

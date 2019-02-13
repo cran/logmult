@@ -39,10 +39,12 @@ rc <- function(tab, nd=1, symmetric=FALSE, diagonal=FALSE,
   else
       diagstr <- ""
 
+  # gnm can give incorrect results with contrasts other than treatment
+  contr <- getOption("contrasts")
+  on.exit(options(contrasts=contr))
+  options(contrasts=c("contr.treatment", "contr.treatment"))
 
-  nastart <- length(start) == 1 && is.na(start)
-
-  if(nastart) {
+  if(identical(start, NA)) {
       cat("Running base model to find starting values...\n")
 
       args <- list(formula=as.formula(sprintf("Freq ~ %s + %s %s", vars[1], vars[2], diagstr)),
@@ -177,9 +179,9 @@ assoc.rc <- function(model, weighting=c("marginal", "uniform", "none"),
   }
 
   if(length(pickCoef(model, "Diag\\(")) > nrow(tab))
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], ncol=nrow(tab))
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), ncol=nrow(tab))
   else if(length(pickCoef(model, "Diag\\(")) > 0)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], 1, nrow(tab))
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), 1, nrow(tab))
   else
       dg <- numeric(0)
 
@@ -308,9 +310,9 @@ assoc.rc.symm <- function(model, weighting=c("marginal", "uniform", "none"),
   }
 
   if(length(pickCoef(model, "Diag\\(")) > nrow(tab))
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], ncol=nrow(tab))
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), ncol=nrow(tab))
   else if(length(pickCoef(model, "Diag\\(")) > 0)
-      dg <- matrix(parameters(model)[pickCoef(model, "Diag\\(")], 1, nrow(tab))
+      dg <- matrix(pickCoef(model, "Diag\\(", value=TRUE), 1, nrow(tab))
   else
       dg <- numeric(0)
 
