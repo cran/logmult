@@ -12,7 +12,7 @@
 
 <meta name="author" content="Milan Bouchet-Valat" />
 
-<meta name="date" content="2019-02-13" />
+<meta name="date" content="2020-08-15" />
 
 <title>Short Reference for logmult</title>
 
@@ -214,7 +214,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 
 <h1 class="title toc-ignore">Short Reference for logmult</h1>
 <h4 class="author"><em>Milan Bouchet-Valat</em></h4>
-<h4 class="date"><em>2019-02-13</em></h4>
+<h4 class="date"><em>2020-08-15</em></h4>
 
 
 
@@ -229,7 +229,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <li>Skew-symmetric row-column association model with layer effect (extension of van der Heijden &amp; Mooijaart): <code>hmskewL</code> function.</li>
 <li>Skew-symmetric row-column association model (Yamaguchi RC-SK): <code>yrcskew</code> function.</li>
 </ul>
-<p>Please refer to the inline documentation for each function (e.g. <code>?unidiff</code>) for more details and classic examples.</p>
+<p>Please refer to the inline documentation for each function (e.g. <code>?unidiff</code>) for more details and classic examples.</p>
 <p>These functions take as their first argument a table, typically obtained via the <code>table</code> or <code>xtabs</code> function. Arrays of counts without row, column and layer names will have letters attributed automatically; use <code>rownames</code>, <code>colnames</code> and/or <code>dimnames</code> to change these names.</p>
 <p>Main options common to several models include:</p>
 <ul>
@@ -243,7 +243,7 @@ code > span.fu { color: #900; font-weight: bold; }  code > span.er { color: #a61
 <li>Fully random or precomputed (semi-random) starting values: <code>start</code> argument.</li>
 <li>Fitting control via arguments passed to <code>gnm</code>: tolerance criterion (<code>tolerance</code>), maximum number of iterations (<code>iterMax</code>), progress output (<code>trace</code> and <code>verbose</code>), faster fitting by not estimating uninteresting parameters (<code>elim</code>).</li>
 </ul>
-<p>Custom models which cannot be obtained via the standard options can be fitted manually by calling <code>gnm</code> directly. Association coefficients can then be extracted by calling one of the <code>assoc.*</code> functions on the model: <code>assoc.rc</code>, <code>assoc.rcL</code>, <code>assoc.rcL.symm</code>, <code>assoc.hmskew</code>, <code>assoc.hmskewL</code>, <code>assoc.rc.symm</code> or <code>assoc.yrcskew</code>. Since these functions are not exported, you need to fully qualify them to call them, e.g. <code>logmult:::assoc.rc(model)</code>. The resulting objects (of class <code>assoc</code>) can be passed to <code>plot</code> and support the same options as models.</p>
+<p>Custom models which cannot be obtained via the standard options can be fitted manually by calling <code>gnm</code> directly. Association coefficients can then be extracted by calling one of the <code>assoc.*</code> functions on the model: <code>assoc.rc</code>, <code>assoc.rcL</code>, <code>assoc.rcL.symm</code>, <code>assoc.hmskew</code>, <code>assoc.hmskewL</code>, <code>assoc.rc.symm</code> or <code>assoc.yrcskew</code>. Since these functions are not exported, you need to fully qualify them to call them, e.g. <code>logmult:::assoc.rc(model)</code>. The resulting objects (of class <code>assoc</code>) can be passed to <code>plot</code> and support the same options as models.</p>
 <p>Models of the “quasi-” type, i.e. excluding some cells of a table, can be fitted by setting the corresponding cells of the input table to <code>NA</code>. Reported degrees of freedom will be correct (contrary to what often happens when setting zero weights for these cells).</p>
 </div>
 <div id="plotting" class="section level1">
