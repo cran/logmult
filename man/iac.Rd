@@ -17,6 +17,7 @@ iac(tab, cell = FALSE,
     weighting = c("marginal", "uniform", "none"),
     component = c("total", "symmetric", "antisymmetric"),
     shrink = FALSE,
+    normalize = FALSE,
     row.weights = NULL, col.weights = NULL)
 }
 \arguments{
@@ -30,6 +31,9 @@ iac(tab, cell = FALSE,
       or antisymmetric interaction coefficients only.}
   \item{shrink}{whether to use the empirical Bayes shrinkage estimator proposed by Zhou (2015)
       rather than the direct estimator.}
+  \item{normalize}{whether to return the normalized version of the index varying
+      between 0 and 1 proposed by Bouchet-Valat (2022) rather than the
+      classic index varying between 0 and positive infinity.}
   \item{row.weights}{optional custom weights to be used for rows, e.g. to compute
       the phi coefficient for several tables using their overall marginal
       distribution. If specified, \code{weighting} is ignored.}
@@ -37,16 +41,18 @@ iac(tab, cell = FALSE,
 }
 \details{
   See Goodman (1996), Equation 52 for the (marginal or other) weighted version of
-  the intrinsic association coefficient (\eqn{\tilde \phi}); the unweighted version can be
-  computed with unit weights. The coefficient is called \eqn{\tilde \lambda^2} in the original
-  article, but to avoid the confusion with Goodman and Kruskal's lambda coefficient,
-  it is here denoted as \eqn{\phi}, as usual in row-column association models.
+  the intrinsic association coefficient (\eqn{\tilde \lambda}); the unweighted version can be
+  computed with unit weights. The coefficient should not be confused with Goodman and Kruskal's lambda coefficient.
   The uniform-weighted version is defined as:
-  \deqn{\phi = \sqrt{ \frac{1}{IJ} \sum_{i = 1}^I \sum_{j = 1}^J \lambda_{ij}^2 }}
+  \deqn{\lambda^\dagger = \sqrt{ \frac{1}{IJ} \sum_{i = 1}^I \sum_{j = 1}^J \lambda_{ij}^2 }}
   The (marginal or other) weighted version is defined as:
-  \deqn{\tilde \phi = \sqrt{ \sum_{i = 1}^I \sum_{j = 1}^J \tilde \lambda_{ij}^2 P_{i+} P_{+j} }}
+  \deqn{\tilde \lambda = \sqrt{ \sum_{i = 1}^I \sum_{j = 1}^J \tilde \lambda_{ij}^2 P_{i+} P_{+j} }}
   with \eqn{\sum_{i = 1}^I \lambda_{ij} = \sum_{j = 1}^J \lambda_{ij} = 0} and
   \eqn{\sum_{i = 1}^I P_{i+} \tilde \lambda_{ij} = \sum_{j = 1}^J P_{+j} \tilde \lambda_{ij} = 0}.
+
+  The normalized version of the index is defined from \eqn{\lambda^\dagger} and
+  \eqn{\tilde \lambda} as:
+  \deqn{\tau = \sqrt{1 + 1/(2 \lambda)^2} - 1/(2 \lambda)}
 
   Per-cell contributions \eqn{c_{ij}} are defined so that:
   \eqn{\tilde \phi = \sqrt{ \sum_{i = 1}^I \sum_{j = 1}^J c_{ij} }}. For the unweighted case,
@@ -69,12 +75,15 @@ iac(tab, cell = FALSE,
   Altham, P. M. E., Ferrie J. P., 2007. Comparing Contingency Tables Tools for Analyzing Data
       from Two Groups Cross-Classified by Two Characteristics. \emph{Historical Methods} 40(1):3-16.
 
-  Goodman, L. A. (1996). A Single General Method for the Analysis of Cross-Classified Data: Reconciliation
-      and Synthesis of Some Methods of Pearson, Yule, and Fisher, and Also Some Methods of Correspondence
-      Analysis and Association Analysis. \emph{J. of the Am. Stat. Ass.} 91(433):408-428.
+  Bouchet-Valat, M. (2022). General Marginal-free Association Indices for Contingency Tables:
+  From the Altham Index to the Intrinsic Association Coefficient. \emph{Sociological Methods & Research} 51(1): 203-236.
 
   Berkson, J. (1955). Maximum Likelihood and Minimum chi2 Estimates of the Logistic Function.
       \emph{J. of the Am. Stat. Ass.} 50(269):130-162.
+
+  Goodman, L. A. (1996). A Single General Method for the Analysis of Cross-Classified Data: Reconciliation
+      and Synthesis of Some Methods of Pearson, Yule, and Fisher, and Also Some Methods of Correspondence
+      Analysis and Association Analysis. \emph{J. of the Am. Stat. Ass.} 91(433):408-428.
 
   Zhou, X. (2015). Shrinkage Estimation of Log-Odds Ratios for Comparing Mobility Tables.
       \emph{Sociological Methodology} 45(1):33-63.
